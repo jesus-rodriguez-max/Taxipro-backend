@@ -1,0 +1,18 @@
+
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // User profile images: only the user can upload/delete their own image
+    match /users/{userId}/{fileName} {
+      allow read: if true; // Allow public read access to profile images
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Driver profile images: only the driver can upload/delete their own image
+    match /drivers/{driverId}/{fileName} {
+      allow read: if true; // Allow public read access to profile images
+      allow write: if request.auth != null && request.auth.uid == driverId;
+    }
+  }
+}
