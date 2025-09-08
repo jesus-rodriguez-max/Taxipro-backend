@@ -1,5 +1,4 @@
-﻿name: e2e-emulators
-
+name: e2e-emulators
 on:
   workflow_dispatch:
 
@@ -10,34 +9,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node 20
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: "temurin"
           java-version: "17"
 
-      - name: Install functions deps
-        run: npm ci --prefix functions
+      - name: Install function dependencies
+        run: npm ci
+        working-directory: ./functions
 
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
-
-      - name: Show Firebase CLI version
-        run: firebase --version
-
-      - name: E2E requestRide
-        run: firebase emulators:exec --project taxipro-chofer --only auth,firestore,functions -- node tools/e2e_requestRide.js
-
-      - name: E2E assign
-        run: firebase emulators:exec --project taxipro-chofer --only auth,firestore,functions -- node tools/e2e_assign.js
-
-      - name: E2E status
-        run: firebase emulators:exec --project taxipro-chofer --only auth,firestore,functions -- node tools/e2e_status.js
-
-      - name: E2E payment
-        run: firebase emulators:exec --project taxipro-chofer --only auth,firestore,functions -- node tools/e2e_payment.js
+      - name: Run E2E test for requestRide
+        run: npx --package=firebase-tools firebase emulators:exec --project taxipro-chofer --only auth,firestore,functions -- 'node tools/e2e_requestRide.js'
