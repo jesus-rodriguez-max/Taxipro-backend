@@ -24,8 +24,11 @@ jobs:
       - name: Install functions deps
         run: npm ci --prefix functions
 
+      - name: Install firebase-tools
+        run: npm install -g firebase-tools
+
       - name: Firebase Tools Version
-        run: npx firebase-tools --version
+        run: firebase --version
 
       - name: E2E requestRide
         run: npx firebase emulators:exec --project taxipro-chofer --only auth,firestore,functions -- node ./tools/e2e_requestRide.js
