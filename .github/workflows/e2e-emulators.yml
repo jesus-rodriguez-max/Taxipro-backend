@@ -30,7 +30,10 @@ jobs:
       - name: List files for debugging
         run: ls -R
 
+      - name: Check for firebase-tools executable
+        run: ls -l node_modules/.bin/firebase
+
       - name: Run E2E test for requestRide
-        run: npx firebase emulators:exec --project taxipro-chofer --only auth,firestore,functions "node tools/e2e_requestRide.js"
+        run: npm run test:e2e:request-ride
 
 # Forzar actualización
