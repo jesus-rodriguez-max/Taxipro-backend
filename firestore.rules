@@ -1,26 +1,56 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Users can only read and write their own data
+    
+    // Usuarios: solo pueden leer/escribir su propio doc
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Drivers can only read and write their own data
+    // Choferes: solo pueden leer/escribir su propio doc
     match /drivers/{driverId} {
       allow read, write: if request.auth != null && request.auth.uid == driverId;
     }
 
-    // Rides can be created by any authenticated user
-    // Rides can only be read by the user who created it or the assigned driver
-    // Rides can only be updated by the assigned driver
-    match /rides/{rideId} {
-      allow create: if request.auth != null;
-      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || resource.data.driverId == request.auth.uid);
-      allow update: if request.auth != null && request.auth.uid == resource.data.driverId;
+    // Viajes
+    match /trips/{tripId} {
+      // Crear: usuario dueño del viaje, estado = pending
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.pickupLocation is map
+        && request.resource.data.destination is map
+        && request.resource.data.fare is number;
+
+      // Leer: dueño o chofer asignado
+      allow read: if request.auth != null &&
+        (resource.data.userId == request.auth.uid ||
+         resource.data.driverId == request.auth.uid);
+
+      // Actualizar: solo a través de la máquina de estados
+      allow update: if request.auth != null && (
+        // pending → assigned
+        (resource.data.status == 'pending'
+         && request.resource.data.status == 'assigned'
+         && request.resource.data.driverId == request.auth.uid
+         && request.resource.data.acceptedAt is timestamp) ||
+
+        // assigned → active
+        (resource.data.status == 'assigned'
+         && resource.data.driverId == request.auth.uid
+         && request.resource.data.status == 'active'
+         && request.resource.data.startedAt is timestamp) ||
+
+        // active → completed
+        (resource.data.status == 'active'
+         && resource.data.driverId == request.auth.uid
+         && request.resource.data.status == 'completed'
+         && request.resource.data.finishedAt is timestamp)
+      );
+
+      // Nunca se permite delete desde clientes
+      allow delete: if false;
     }
   }
 }
