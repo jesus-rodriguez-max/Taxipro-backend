@@ -1,0 +1,11 @@
+{
+  "name": "taxipro-backend-e2e",
+  "version": "1.0.0",
+  "description": "E2E tests for Taxipro Backend",
+  "scripts": {
+    "test:e2e:request-ride": "firebase emulators:exec --project taxipro-chofer --only auth,firestore,functions \"node tools/e2e_requestRide.js\""
+  },
+  "devDependencies": {
+    "firebase-tools": "13.11.4"
+  }
+}

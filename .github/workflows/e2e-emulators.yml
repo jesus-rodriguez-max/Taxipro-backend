@@ -20,6 +20,9 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
+      - name: Install root dependencies
+        run: npm ci
+
       - name: Install function dependencies
         run: npm ci
         working-directory: ./functions
@@ -28,4 +31,4 @@ jobs:
         run: ls -R
 
       - name: Run E2E test for requestRide
-        run: npx --package=firebase-tools@13.11.4 firebase emulators:exec --project taxipro-chofer --only auth,firestore,functions "node tools/e2e_requestRide.js"
+        run: npm run test:e2e:request-ride
