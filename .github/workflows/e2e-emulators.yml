@@ -1,39 +1,36 @@
-name: e2e-emulators
-on:
-  workflow_dispatch:
+run:
+  runs-on: ubuntu-latest
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
 
-jobs:
-  run:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: "temurin"
+        java-version: "17"
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: "temurin"
-          java-version: "17"
+    - name: Install root dependencies
+      run: npm ci
 
-      - name: Install root dependencies
-        run: npm ci
+    - name: Install function dependencies
+      run: npm ci
+      working-directory: ./functions
 
-      - name: Install function dependencies
-        run: npm ci
-        working-directory: ./functions
-      
-      - name: List files for debugging
-        run: ls -R
+    - name: List files for debugging
+      run: ls -R
 
-      - name: Check for firebase-tools executable
-        run: ls -l node_modules/.bin/firebase
+    - name: Check for firebase-tools executable
+      run: |
+        which firebase || echo "firebase not in PATH"
+        ls -l node_modules/.bin/ || true
 
-      - name: Run E2E test for requestRide
-        run: npm run test:e2e:request-ride
+    - name: Run E2E test for requestRide
+      run: npm run test:e2e:request-ride
 
 # Forzar actualización
