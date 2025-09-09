@@ -1,12 +1,11 @@
 {
-  "name": "taxipro-firestore-rules-tests",
-  "version": "1.0.0",
+  "name": "firestore-tests",
+  "private": true,
   "scripts": {
-    "test": "firebase emulators:exec --only firestore --project taxipro-usuariox --config ../firebase.json \"npx jest --runInBand\""
+    "test": "firebase emulators:exec --only firestore --project taxipro-chofer --config ../firebase.json \"npx jest --runInBand\""
   },
   "devDependencies": {
-    "@firebase/rules-unit-testing": "^2.0.2",
     "firebase-tools": "^13.0.0",
-    "jest": "^29.7.0"
+    "jest": "^29.6.2"
   }
 }
