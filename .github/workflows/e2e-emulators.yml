@@ -25,4 +25,4 @@ jobs:
         working-directory: ./functions
 
       - name: Run E2E test for requestRide
-        run: npx --package=firebase-tools firebase emulators:exec --project taxipro-chofer --only auth,firestore,functions -- node tools/e2e_requestRide.js
+        run: npx --package=firebase-tools@13.11.4 firebase emulators:exec --project taxipro-chofer --only auth,firestore,functions 'tools/e2e_requestRide.js'
