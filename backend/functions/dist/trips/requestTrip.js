@@ -2,7 +2,7 @@ import { https } from 'firebase-functions';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { TripStatus } from '../lib/types.js';
 import { log } from '../lib/logging.js';
-export const requestTrip = https.onCall(async (data, context) => {
+export const requestTripCallable = async (data, context) => {
     if (!context.auth) {
         throw new https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
@@ -33,5 +33,5 @@ export const requestTrip = https.onCall(async (data, context) => {
     const tripRef = await firestore.collection('trips').add(newTrip);
     await log(tripRef.id, 'Trip requested by passenger', { passengerId, origin, destination });
     return { tripId: tripRef.id };
-});
+};
 //# sourceMappingURL=requestTrip.js.map

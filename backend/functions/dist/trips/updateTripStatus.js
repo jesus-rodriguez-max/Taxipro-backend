@@ -4,7 +4,7 @@ import { TripStatus } from '../lib/types.js';
 import { canTransition } from '../lib/state.js';
 import { isWithinGeofence } from '../lib/geo.js';
 import { log } from '../lib/logging.js';
-export const updateTripStatus = https.onCall(async (data, context) => {
+export const updateTripStatusCallable = async (data, context) => {
     if (!context.auth) {
         throw new https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
@@ -48,5 +48,5 @@ export const updateTripStatus = https.onCall(async (data, context) => {
     await tripRef.update(updateData);
     await log(tripId, `Trip status updated to ${newStatus}`, { actorId, newStatus });
     return { success: true };
-});
+};
 //# sourceMappingURL=updateTripStatus.js.map

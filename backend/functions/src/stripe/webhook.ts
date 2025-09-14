@@ -1,24 +1,33 @@
-import * as admin from 'firebase-admin';
+import * as functions from 'firebase-functions';
 import Stripe from 'stripe';
-import { https } from 'firebase-functions';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, { apiVersion: '2024-04-10' });
+export const webhook = functions.https.onRequest((req, res) => {
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: '2024-04-10',
+  });
+  const sig = req.headers['stripe-signature'];
 
-export const webhook = https.onRequest(async (req, res) => {
-  try {
-    const sig = req.headers['stripe-signature'] as string | undefined;
-    const event = stripe.webhooks.constructEvent(req.rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET as string);
-
-    const firestore = (admin as any).firestore();
-    await firestore.collection('stripe_events').doc(event.id).set({
-      id: event.id,
-      type: event.type,
-      receivedAt: new Date().toISOString(),
-    });
-
-    return res.json({ received: true });
-  } catch (err: any) {
-    res.status(400);
-    return res.send(err?.message || 'Webhook Error');
+  if (!sig) {
+    console.error('Stripe signature missing from header.');
+    res.status(400).send('Stripe signature missing.');
+    return;
   }
+
+  let event: Stripe.Event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.rawBody,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET!
+    );
+  } catch (err: any) {
+    console.error(`Webhook Error: ${err.message}`);
+    res.status(400).send(`Webhook Error: ${err.message}`);
+    return;
+  }
+
+  console.log(`Received Stripe event: ${event.type}`);
+
+  res.status(200).send({ received: true });
 });

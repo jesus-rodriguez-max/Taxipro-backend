@@ -1,9 +1,9 @@
 import { https } from 'firebase-functions';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { Trip, TripStatus, GeoPoint } from '../lib/types';
-import { canTransition } from '../lib/state';
-import { isWithinGeofence } from '../lib/geo';
-import { log } from '../lib/logging';
+import { Trip, TripStatus, GeoPoint } from '../lib/types.js';
+import { canTransition } from '../lib/state.js';
+import { isWithinGeofence } from '../lib/geo.js';
+import { log } from '../lib/logging.js';
 import { config } from 'firebase-functions';
 
 export const updateTripStatusCallable = async (data: any, context: https.CallableContext) => {

@@ -1,4 +1,4 @@
-import { webhook } from '../src/stripe/webhook.js';
+import { webhook } from '../src/stripe/webhook';
 import * as admin from 'firebase-admin';
 import Stripe from 'stripe';
 
@@ -16,13 +16,14 @@ jest.mock('firebase-admin', () => ({
 
 // Mock Stripe
 jest.mock('stripe', () => {
-  const originalStripe = jest.requireActual('stripe');
-  return {
-    ...originalStripe,
-    webhooks: {
-      constructEvent: jest.fn(),
-    },
+  const webhooksMock = {
+    constructEvent: jest.fn(),
   };
+  const StripeMock = class {
+    webhooks = webhooksMock;
+    static webhooks = webhooksMock;
+  };
+  return StripeMock;
 });
 
 describe('Stripe Webhook', () => {
@@ -54,7 +55,7 @@ describe('Stripe Webhook', () => {
 
     await webhook(req, res);
 
-    expect(res.json).toHaveBeenCalledWith({ received: true });
+    expect(res.send).toHaveBeenCalledWith({ received: true });
   });
 
   it('should handle an invalid signature', async () => {

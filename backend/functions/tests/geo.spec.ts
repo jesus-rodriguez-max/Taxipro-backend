@@ -1,5 +1,5 @@
-import { getDistanceInMeters, isWithinGeofence } from '../src/lib/geo.js';
-import { GeoPoint } from '../src/lib/types.js';
+import { getDistanceInMeters, isWithinGeofence } from '../src/lib/geo';
+import { GeoPoint } from '../src/lib/types';
 
 describe('Geo Library', () => {
   const point1: GeoPoint = { lat: 40.7128, lng: -74.0060 }; // New York

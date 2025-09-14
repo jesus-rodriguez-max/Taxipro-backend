@@ -1,4 +1,4 @@
-import { TripStatus } from './types.js';
+import { TripStatus } from './types';
 const validTransitions = {
     [TripStatus.PENDING]: [TripStatus.ASSIGNED],
     [TripStatus.ASSIGNED]: [TripStatus.ACTIVE],
