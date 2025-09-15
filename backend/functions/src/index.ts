@@ -16,6 +16,10 @@ import {
 } from './safetyShare.js';
 import { updateShareLocation } from './updateShareLocation.js';
 import { createDriverSubscriptionSessionCallable } from './createDriverSubscription.js';
+import {
+  updateTrustedContactsCallable,
+  updateSafetyConsentsCallable,
+} from './safetyProfile.js';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -43,3 +47,7 @@ export const updateShareLocationFn = updateShareLocation;
 export const createDriverSubscriptionSession = https.onCall(
   createDriverSubscriptionSessionCallable,
 );
+
+// Safety profile functions
+export const updateTrustedContacts = https.onCall(updateTrustedContactsCallable);
+export const updateSafetyConsents = https.onCall(updateSafetyConsentsCallable);
