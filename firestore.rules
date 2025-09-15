@@ -2,20 +2,20 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Usuarios: solo pueden leer/escribir su propio doc
+
+    // Users: only read/write their own doc
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Choferes: solo pueden leer/escribir su propio doc
+    // Drivers: only read/write their own doc
     match /drivers/{driverId} {
       allow read, write: if request.auth != null && request.auth.uid == driverId;
     }
 
-    // Viajes
+    // Trips and nested safety
     match /trips/{tripId} {
-      // Crear: usuario dueño del viaje, estado = pending
+      // Create: user (passenger) only with pending status
       allow create: if request.auth != null
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.status == 'pending'
@@ -23,34 +23,61 @@ service cloud.firestore {
         && request.resource.data.destination is map
         && request.resource.data.fare is number;
 
-      // Leer: dueño o chofer asignado
+      // Read: passenger or assigned driver
       allow read: if request.auth != null &&
         (resource.data.userId == request.auth.uid ||
          resource.data.driverId == request.auth.uid);
 
-      // Actualizar: solo a través de la máquina de estados
+      // Update: restrict state transitions
       allow update: if request.auth != null && (
-        // pending → assigned
+        // pending -> assigned
         (resource.data.status == 'pending'
          && request.resource.data.status == 'assigned'
          && request.resource.data.driverId == request.auth.uid
          && request.resource.data.acceptedAt is timestamp) ||
-
-        // assigned → active
+        // assigned -> active
         (resource.data.status == 'assigned'
          && resource.data.driverId == request.auth.uid
          && request.resource.data.status == 'active'
          && request.resource.data.startedAt is timestamp) ||
-
-        // active → completed
+        // active -> completed
         (resource.data.status == 'active'
          && resource.data.driverId == request.auth.uid
          && request.resource.data.status == 'completed'
          && request.resource.data.finishedAt is timestamp)
       );
 
-      // Nunca se permite delete desde clientes
+      // Never allow delete from clients
       allow delete: if false;
+
+      // Subdocument safety
+      match /safety/{docId} {
+        // Allow read for passenger or driver
+        allow read: if request.auth != null &&
+          ((get(/databases/$(database)/documents/trips/$(tripId)).data.userId == request.auth.uid) ||
+           (get(/databases/$(database)/documents/trips/$(tripId)).data.driverId == request.auth.uid));
+        // No client writes; writes done via Cloud Functions
+        allow write: if false;
+      }
     }
+
+    // Safety profiles
+    match /safety_profiles/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Safety share tokens
+    match /safety_shares/{token} {
+      // Allow public read when share is active and not expired
+      allow read: if resource.data.active == true
+        && request.time < resource.data.expiresAt;
+      allow write: if false;
+    }
+
+    // Stripe events should not be accessible by clients
+    match /stripe_events/{eventId} {
+      allow read, write: if false;
+    }
+
   }
 }
