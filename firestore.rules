@@ -3,83 +3,112 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users: only read/write their own doc
+    // Users: owner and admin can read/write
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && (request.auth.uid == userId || request.auth.token.admin == true);
+      allow write: if request.auth != null && (request.auth.uid == userId || request.auth.token.admin == true);
     }
 
-    // Drivers: only read/write their own doc
+    // Drivers: owner and admin can read/write
     match /drivers/{driverId} {
-      allow read, write: if request.auth != null && request.auth.uid == driverId;
+      allow read: if request.auth != null && (request.auth.uid == driverId || request.auth.token.admin == true);
+      allow write: if request.auth != null && (request.auth.uid == driverId || request.auth.token.admin == true);
     }
 
     // Trips and nested safety
     match /trips/{tripId} {
-      // Create: user (passenger) only with pending status
+      // Create: passenger only with pending status
       allow create: if request.auth != null
-        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.passengerId == request.auth.uid
         && request.resource.data.status == 'pending'
-        && request.resource.data.pickupLocation is map
-        && request.resource.data.destination is map
-        && request.resource.data.fare is number;
+        && request.resource.data.origin is map
+        && request.resource.data.destination is map;
 
-      // Read: passenger or assigned driver
-      allow read: if request.auth != null &&
-        (resource.data.userId == request.auth.uid ||
-         resource.data.driverId == request.auth.uid);
+      // Read: passenger, assigned driver, or admin
+      allow read: if request.auth != null && (
+        resource.data.passengerId == request.auth.uid ||
+        resource.data.driverId == request.auth.uid ||
+        request.auth.token.admin == true
+      );
 
-      // Update: restrict state transitions or allow admin override
+      // Update: restrict transitions or allow admin override or passenger cancellation/rating
       allow update: if request.auth != null && (
         // Admins can update any trip
         request.auth.token.admin == true ||
-        // pending -> assigned
-        (resource.data.status == 'pending'
-         && request.resource.data.status == 'assigned'
-         && request.resource.data.driverId == request.auth.uid
-         && request.resource.data.acceptedAt is timestamp) ||
-        // assigned -> active
-        (resource.data.status == 'assigned'
-         && resource.data.driverId == request.auth.uid
-         && request.resource.data.status == 'active'
-         && request.resource.data.startedAt is timestamp) ||
-        // active -> completed
-        (resource.data.status == 'active'
-         && resource.data.driverId == request.auth.uid
-         && request.resource.data.status == 'completed'
-         && request.resource.data.finishedAt is timestamp)
+        // Passenger can cancel when pending, assigned, or active
+        (
+          resource.data.passengerId == request.auth.uid &&
+          resource.data.status in ['pending', 'assigned', 'active'] &&
+          request.resource.data.status == 'cancelled'
+        ) ||
+        // Passenger can add rating and review after completion
+        (
+          resource.data.passengerId == request.auth.uid &&
+          resource.data.status == 'completed' &&
+          (request.resource.data.rating is number || request.resource.data.review is string)
+        ) ||
+        // pending -> assigned by driver
+        (
+          resource.data.status == 'pending' &&
+          request.resource.data.status == 'assigned' &&
+          request.resource.data.driverId == request.auth.uid &&
+          request.resource.data.acceptedAt is timestamp
+        ) ||
+        // assigned -> active by driver
+        (
+          resource.data.status == 'assigned' &&
+          resource.data.driverId == request.auth.uid &&
+          request.resource.data.status == 'active' &&
+          request.resource.data.startedAt is timestamp
+        ) ||
+        // active -> completed by driver
+        (
+          resource.data.status == 'active' &&
+          resource.data.driverId == request.auth.uid &&
+          request.resource.data.status == 'completed' &&
+          request.resource.data.completedAt is timestamp
+        )
       );
 
-      // Never allow delete from clients
+      // Never allow client deletion
       allow delete: if false;
 
-      // Subdocument safety
+      // Safety subcollection
       match /safety/{docId} {
-        // Allow read for passenger or driver
-        allow read: if request.auth != null &&
-          ((get(/databases/$(database)/documents/trips/$(tripId)).data.userId == request.auth.uid) ||
-           (get(/databases/$(database)/documents/trips/$(tripId)).data.driverId == request.auth.uid));
-        // No client writes; writes done via Cloud Functions
+        // Allow read for passenger, driver, admin, or admin_compliance
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/trips/$(tripId)).data.passengerId == request.auth.uid ||
+          get(/databases/$(database)/documents/trips/$(tripId)).data.driverId == request.auth.uid ||
+          request.auth.token.admin == true ||
+          request.auth.token.admin_compliance == true
+        );
+        // No direct client writes; writes are done via Cloud Functions
         allow write: if false;
       }
     }
 
     // Safety profiles
     match /safety_profiles/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null && (
+        request.auth.uid == uid ||
+        request.auth.token.admin == true ||
+        request.auth.token.admin_compliance == true
+      );
+      allow write: if request.auth != null && request.auth.uid == uid;
     }
 
     // Safety share tokens
     match /safety_shares/{token} {
-      // Allow public read when share is active and not expired
-      allow read: if resource.data.active == true
-        && request.time < resource.data.expiresAt;
+      // Public read if active and not expired
+      allow read: if resource.data.active == true && request.time < resource.data.expiresAt;
+      // Disallow client writes; modifications are done via Cloud Functions
       allow write: if false;
     }
 
-    // Stripe events should not be accessible by clients
+    // Stripe events: allow admin or compliance read for auditing
     match /stripe_events/{eventId} {
-      allow read, write: if false;
+      allow read: if request.auth != null && (request.auth.token.admin == true || request.auth.token.admin_compliance == true);
+      allow write: if false;
     }
-
   }
 }
