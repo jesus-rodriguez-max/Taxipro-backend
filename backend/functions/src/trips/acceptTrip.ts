@@ -1,25 +1,61 @@
 import * as functions from 'firebase-functions';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { TripStatus } from '../lib/types.js';
+import { isDriverSubscriptionActive } from '../lib/subscription.js';
+import { log } from '../lib/logging.js';
 
 /**
- * Stub for the acceptTrip callable function (v1).
- * @param data The data passed to the function.
- * @param context The metadata for the function invocation.
- * @returns {object} A success message and the trip ID.
+ * Callable that allows a driver to accept a pending trip.
+ * @param data expects an object { tripId: string }
+ * @param context firebase context with auth
  */
-export const acceptTripCallable = (data: { tripId?: string }, context: functions.https.CallableContext) => {
+export const acceptTripCallable = async (data: { tripId: string }, context: functions.https.CallableContext) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
   }
-  const tripId = data.tripId || `trip_${Date.now()}`;
 
-  functions.logger.info(`Trip ${tripId} accepted successfully by user: ${context.auth?.uid || 'unauthenticated'}`);
+  const driverId = context.auth.uid;
+  const { tripId } = data;
 
-  // This is a stub, so we just return a success message.
-  // In a real implementation, you would update the trip status in Firestore.
+  if (!tripId) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing tripId.');
+  }
+
+  // Check if driver has an active subscription or free trial
+  const isActive = await isDriverSubscriptionActive(driverId);
+  if (!isActive) {
+    throw new functions.https.HttpsError('permission-denied', 'Driver does not have an active subscription.');
+  }
+
+  const firestore = getFirestore();
+  const tripRef = firestore.collection('trips').doc(tripId);
+  const tripDoc = await tripRef.get();
+
+  if (!tripDoc.exists) {
+    throw new functions.https.HttpsError('not-found', 'Trip not found.');
+  }
+
+  const trip = tripDoc.data() as any;
+
+  // Only allow accepting trips that are requested/pending
+  if (trip.status && trip.status !== TripStatus.REQUESTED && trip.status !== 'requested') {
+    throw new functions.https.HttpsError('failed-precondition', 'Trip cannot be accepted in its current status.');
+  }
+
+  // Assign driver and update status to assigned
+  await tripRef.update({
+    driverId,
+    status: TripStatus.ASSIGNED ?? 'assigned',
+    acceptedAt: FieldValue.serverTimestamp(),
+  });
+
+  // Log acceptance
+  log(`Driver ${driverId} accepted trip ${tripId}`);
+
   return {
-    status: "not_implemented",
     success: true,
-    message: "Trip accepted successfully (stub)",
-    tripId: tripId,
+    message: 'Trip accepted successfully',
+    tripId,
+    status: TripStatus.ASSIGNED ?? 'assigned',
   };
 };
