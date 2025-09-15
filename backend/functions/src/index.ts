@@ -6,6 +6,7 @@ import { updateTripStatusCallable } from './trips/updateTripStatus.js';
 import { webhook as stripeWebhook } from './stripe/webhook.js';
 import { startRecordingCallable, stopRecordingCallable, logSafetyEventCallable } from './safety.js';
 import { enableShareCallable, disableShareCallable, getShareStatus } from './safetyShare.js';
+import { updateShareLocation } from './updateShareLocation.js';
 
 admin.initializeApp();
 
@@ -16,6 +17,7 @@ export const stripe = https.onRequest(stripeWebhook);
 export const startRecording = https.onCall(startRecordingCallable);
 export const stopRecording = https.onCall(stopRecordingCallable);
 export const logSafetyEvent = https.onCall(logSafetyEventCallable);
-export const enableShare = https.onCall(enableShareCallable);
-export const disableShare = https.onCall(disableShareCallable);
+export const enableShare = enableShareCallable;
+export const disableShare = disableShareCallable;
 export const getShareStatusFn = getShareStatus;
+export const updateShareLocationFn = updateShareLocation;
