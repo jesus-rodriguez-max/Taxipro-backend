@@ -28,8 +28,10 @@ service cloud.firestore {
         (resource.data.userId == request.auth.uid ||
          resource.data.driverId == request.auth.uid);
 
-      // Update: restrict state transitions
+      // Update: restrict state transitions or allow admin override
       allow update: if request.auth != null && (
+        // Admins can update any trip
+        request.auth.token.admin == true ||
         // pending -> assigned
         (resource.data.status == 'pending'
          && request.resource.data.status == 'assigned'
