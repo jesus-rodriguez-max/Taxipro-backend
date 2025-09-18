@@ -47,26 +47,33 @@ service cloud.firestore {
           resource.data.status == 'completed' &&
           (request.resource.data.rating is number || request.resource.data.review is string)
         ) ||
-        // pending -> assigned by driver
+        // pending -> assigned by driver (driver must be approved and payoutVerified)
         (
           resource.data.status == 'pending' &&
           request.resource.data.status == 'assigned' &&
           request.resource.data.driverId == request.auth.uid &&
-          request.resource.data.acceptedAt is timestamp
+          request.resource.data.acceptedAt is timestamp &&
+          // driver must be approved and have payoutVerified
+          get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.status == 'approved' &&
+          get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.payoutVerified == true
         ) ||
-        // assigned -> active by driver
+        // assigned -> active by driver (driver must be approved and payoutVerified)
         (
           resource.data.status == 'assigned' &&
           resource.data.driverId == request.auth.uid &&
           request.resource.data.status == 'active' &&
-          request.resource.data.startedAt is timestamp
+          request.resource.data.startedAt is timestamp &&
+          get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.status == 'approved' &&
+          get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.payoutVerified == true
         ) ||
-        // active -> completed by driver
+        // active -> completed by driver (driver must be approved and payoutVerified)
         (
           resource.data.status == 'active' &&
           resource.data.driverId == request.auth.uid &&
           request.resource.data.status == 'completed' &&
-          request.resource.data.completedAt is timestamp
+          request.resource.data.completedAt is timestamp &&
+          get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.status == 'approved' &&
+          get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.payoutVerified == true
         )
       );
 
@@ -109,6 +116,35 @@ service cloud.firestore {
     match /stripe_events/{eventId} {
       allow read: if request.auth != null && (request.auth.token.admin == true || request.auth.token.admin_compliance == true);
       allow write: if false;
+    }
+
+    // Trip cleaning claims
+    match /tripCleaningClaims/{claimId} {
+      // Driver can create a cleaning claim for their own trip; admin can read
+      allow create: if request.auth != null && request.resource.data.driverId == request.auth.uid;
+      allow read: if request.auth != null && (
+        request.auth.token.admin == true ||
+        request.auth.token.admin_compliance == true ||
+        request.auth.uid == resource.data.driverId
+      );
+      // Only admin can update or delete claims
+      allow update, delete: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    // Safety incidents (accidents, robbery, riña)
+    match /safety_incidents/{incidentId} {
+      // Any authenticated user can report an incident
+      allow create: if request.auth != null;
+      // Read allowed for reporter, involved passenger or driver, admin, or compliance
+      allow read: if request.auth != null && (
+        resource.data.reportedBy == request.auth.uid ||
+        request.auth.uid == resource.data.passengerId ||
+        request.auth.uid == resource.data.driverId ||
+        request.auth.token.admin == true ||
+        request.auth.token.admin_compliance == true
+      );
+      // Only admin can update or delete incidents
+      allow update, delete: if request.auth != null && request.auth.token.admin == true;
     }
   }
 }
