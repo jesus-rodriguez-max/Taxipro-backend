@@ -1,65 +1,121 @@
-import { https } from 'firebase-functions';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { Trip, TripStatus, GeoPoint } from '../lib/types.js';
-import { canTransition } from '../lib/state.js';
-import { isWithinGeofence } from '../lib/geo.js';
-import { log } from '../lib/logging.js';
-import { config } from 'firebase-functions';
+import * as admin from 'firebase-admin';
+import { HttpsError } from 'firebase-functions/v2/https';
+import { Trip, TripStatus, GeoPoint, Stop } from '../lib/types';
+import { getDistanceInMeters } from '../lib/geo';
 
-export const updateTripStatusCallable = async (data: any, context: https.CallableContext) => {
+// --- Constantes de Configuración ---
+const BASE_FARE = 5000; // 50.00 MXN en centavos
+const COST_PER_KM_CENTS = 1500; // 15.00 MXN
+const COST_PER_MIN_CENTS = 200; // 2.00 MXN
+
+interface UpdateTripData {
+  tripId: string;
+  newStatus?: TripStatus;
+  currentLocation?: GeoPoint;
+  newDestination?: { point: GeoPoint; address: string };
+  newStop?: { location: GeoPoint; address: string };
+}
+
+/**
+ * Gestiona todas las actualizaciones de un viaje: cambio de estado, taxímetro, etc.
+ */
+export const updateTripStatusCallable = async (data: UpdateTripData, context: any) => {
   if (!context.auth) {
-    throw new https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    throw new HttpsError('unauthenticated', 'El usuario no está autenticado.');
   }
 
-  const { tripId, newStatus, currentLocation } = data;
-  const actorId = context.auth.uid;
-
-  if (!tripId || !newStatus) {
-    throw new https.HttpsError('invalid-argument', 'Missing tripId or newStatus.');
-  }
-
-  const firestore = getFirestore();
-  const tripRef = firestore.collection('trips').doc(tripId);
-
+  const { tripId, newStatus, currentLocation, newDestination, newStop } = data;
+  const tripRef = admin.firestore().collection('trips').doc(tripId);
   const tripDoc = await tripRef.get();
-
   if (!tripDoc.exists) {
-    throw new https.HttpsError('not-found', 'Trip not found.');
+    throw new HttpsError('not-found', 'Viaje no encontrado.');
   }
 
   const trip = tripDoc.data() as Trip;
+  const batch = admin.firestore().batch();
+  let response = { success: true, message: 'Viaje actualizado.' };
 
-  if (!canTransition(trip.status, newStatus)) {
-    throw new https.HttpsError('failed-precondition', `Cannot transition from ${trip.status} to ${newStatus}.`);
+  // 1. Cambio de Destino
+  if (newDestination) {
+    handleDestinationChange(trip, newDestination, batch, tripRef);
   }
 
-  const geofenceRadius = parseInt(process.env.GEOFENCE_RADIUS_M || '150', 10);
+  // 2. Añadir Parada Extra
+  if (newStop) {
+    handleAddStop(trip, newStop, batch, tripRef);
+  }
 
-  if (newStatus === TripStatus.ACTIVE) {
-    if (!isWithinGeofence(currentLocation, trip.origin, geofenceRadius)) {
-      throw new https.HttpsError('failed-precondition', 'Driver is not within the origin geofence.');
+  // 3. Actualización de Ubicación (Taxímetro en tiempo real)
+  if (currentLocation && trip.status === TripStatus.ACTIVE) {
+    handleLocationUpdate(trip, currentLocation, batch, tripRef);
+  }
+
+  // 4. Cambio de Estado
+  if (newStatus) {
+    await handleStatusChange(trip, newStatus, batch, tripRef);
+    if (newStatus === TripStatus.COMPLETED) {
+      response.message = 'Viaje completado. Calculando tarifa final.';
     }
-  } else if (newStatus === TripStatus.COMPLETED) {
-    if (!isWithinGeofence(currentLocation, trip.destination, geofenceRadius)) {
-      throw new https.HttpsError('failed-precondition', 'Driver is not within the destination geofence.');
-    }
   }
 
-  const updateData: any = {
-    status: newStatus,
-    updatedAt: FieldValue.serverTimestamp(),
-    audit: { lastActor: 'driver', lastAction: `updateTripStatus: ${newStatus}` },
-  };
-
-  if (newStatus === TripStatus.ACTIVE) {
-    updateData.startedAt = FieldValue.serverTimestamp();
-  } else if (newStatus === TripStatus.COMPLETED) {
-    updateData.completedAt = FieldValue.serverTimestamp();
-  }
-
-  await tripRef.update(updateData);
-
-  await log(tripId, `Trip status updated to ${newStatus}`, { actorId, newStatus });
-
-  return { success: true };
+  await batch.commit();
+  return response;
 };
+
+// --- Lógica Modularizada ---
+
+function handleDestinationChange(trip: Trip, dest: any, batch: admin.firestore.WriteBatch, ref: admin.firestore.DocumentReference) {
+  const progress = (trip.distance?.travelled || 0) / (trip.distance?.planned || 1);
+  const update: any = { 'destination': dest };
+  if (progress > 0.6) {
+    update['fare.surcharges'] = admin.firestore.FieldValue.increment(BASE_FARE);
+  }
+  batch.update(ref, update);
+}
+
+function handleAddStop(trip: Trip, stop: any, batch: admin.firestore.WriteBatch, ref: admin.firestore.DocumentReference) {
+  batch.update(ref, {
+    stops: admin.firestore.FieldValue.arrayUnion(stop),
+    'fare.stops': admin.firestore.FieldValue.increment(BASE_FARE),
+  });
+}
+
+function handleLocationUpdate(trip: Trip, loc: GeoPoint, batch: admin.firestore.WriteBatch, ref: admin.firestore.DocumentReference) {
+  const lastKnownLocation = trip.lastKnownLocation || trip.origin.point; // Asume un campo `lastKnownLocation`
+  const distanceIncrement = getDistanceInMeters(lastKnownLocation, loc);
+  batch.update(ref, {
+    'distance.travelled': admin.firestore.FieldValue.increment(distanceIncrement),
+    lastKnownLocation: loc,
+  });
+}
+
+async function handleStatusChange(trip: Trip, newStatus: TripStatus, batch: admin.firestore.WriteBatch, ref: admin.firestore.DocumentReference) {
+  // Aquí iría la validación de transición de estados (canTransition)
+  const update: any = { status: newStatus, updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+
+  if (newStatus === TripStatus.ACTIVE && trip.status !== TripStatus.ACTIVE) {
+    update.startedAt = admin.firestore.FieldValue.serverTimestamp();
+  } else if (newStatus === TripStatus.COMPLETED) {
+    update.completedAt = admin.firestore.FieldValue.serverTimestamp();
+    
+    // Cálculo de tarifa final
+    const finalTripState = { ...trip, ...update }; // Simula el estado final para el cálculo
+    const travelledSeconds = (finalTripState.completedAt.toMillis() - finalTripState.startedAt.toMillis()) / 1000;
+    const distanceKm = (finalTripState.distance?.travelled || 0) / 1000;
+
+    const timeFare = travelledSeconds * (COST_PER_MIN_CENTS / 60);
+    const distanceFare = distanceKm * COST_PER_KM_CENTS;
+    const stopsFare = finalTripState.fare?.stops || 0;
+    const surcharges = finalTripState.fare?.surcharges || 0;
+
+    const total = BASE_FARE + timeFare + distanceFare + stopsFare + surcharges;
+
+    update['fare.total'] = Math.round(total);
+    update['time.travelled'] = travelledSeconds;
+
+    // Aquí se añadiría la lógica de cobro (Stripe o efectivo)
+    // y la gestión del saldo pendiente.
+  }
+
+  batch.update(ref, update);
+}

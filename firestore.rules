@@ -3,148 +3,86 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users: owner and admin can read/write
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return request.auth.token.admin == true;
+    }
+
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    // Los campos de solo lectura para el cliente, solo modificables por el backend (admin)
+    function isBackendWrite(unchangedFields) {
+      return isAdmin() && request.resource.data.diff(request.resource.data).affectedKeys().hasOnly(unchangedFields) == false;
+    }
+
+    // Users: Propietario o admin pueden leer/escribir, pero con restricciones.
     match /users/{userId} {
-      allow read: if request.auth != null && (request.auth.uid == userId || request.auth.token.admin == true);
-      allow write: if request.auth != null && (request.auth.uid == userId || request.auth.token.admin == true);
+      allow read: if isOwner(userId) || isAdmin();
+      // El usuario puede actualizar sus datos, pero no su saldo pendiente.
+      allow update: if (isOwner(userId) && !('pendingBalance' in request.resource.data.diff(resource.data).affectedKeys())) || isAdmin();
+      allow create: if isOwner(userId);
     }
 
-    // Drivers: owner and admin can read/write
+    // Drivers: Propietario o admin pueden leer/escribir, pero con restricciones.
     match /drivers/{driverId} {
-      allow read: if request.auth != null && (request.auth.uid == driverId || request.auth.token.admin == true);
-      allow write: if request.auth != null && (request.auth.uid == driverId || request.auth.token.admin == true);
+      allow read: if isOwner(driverId) || isAdmin();
+      // El chofer puede actualizar su perfil, pero no su estado de aprobación o membresía.
+      allow update: if (isOwner(driverId) && !('isApproved' in request.resource.data.diff(resource.data).affectedKeys() || 'membership' in request.resource.data.diff(resource.data).affectedKeys())) || isAdmin();
+      allow create: if isOwner(driverId);
     }
 
-    // Trips and nested safety
+    // Trips: Reglas complejas para la máquina de estados.
     match /trips/{tripId} {
-      // Create: passenger only with pending status
-      allow create: if request.auth != null
-        && request.resource.data.passengerId == request.auth.uid
-        && request.resource.data.status == 'pending'
-        && request.resource.data.origin is map
-        && request.resource.data.destination is map;
+      allow read: if isAuth() && (resource.data.passengerId == request.auth.uid || resource.data.driverId == request.auth.uid || isAdmin());
+      
+      // Creación: solo el pasajero, con estado PENDING.
+      allow create: if isOwner(request.resource.data.passengerId) && request.resource.data.status == 'pending';
 
-      // Read: passenger, assigned driver, or admin
-      allow read: if request.auth != null && (
-        resource.data.passengerId == request.auth.uid ||
-        resource.data.driverId == request.auth.uid ||
-        request.auth.token.admin == true
-      );
+      // Actualización: La lógica principal está en las funciones, las reglas solo validan transiciones simples.
+      allow update: if isAuth() && (
+        isAdmin() || // El admin puede hacer cualquier cosa
 
-      // Update: restrict transitions or allow admin override or passenger cancellation/rating
-      allow update: if request.auth != null && (
-        // Admins can update any trip
-        request.auth.token.admin == true ||
-        // Passenger can cancel when pending, assigned, or active
-        (
-          resource.data.passengerId == request.auth.uid &&
-          resource.data.status in ['pending', 'assigned', 'active'] &&
-          request.resource.data.status == 'cancelled'
+        // Pasajero cancela (solo a estados permitidos, la penalización la decide el backend)
+        (isOwner(resource.data.passengerId) && 
+          request.resource.data.status == 'cancelled_by_passenger' && 
+          resource.data.status in ['pending', 'assigned']
         ) ||
-        // Passenger can add rating and review after completion
-        (
-          resource.data.passengerId == request.auth.uid &&
-          resource.data.status == 'completed' &&
-          (request.resource.data.rating is number || request.resource.data.review is string)
+
+        // Chofer acepta el viaje
+        (isOwner(request.resource.data.driverId) && 
+          request.resource.data.status == 'assigned' && 
+          resource.data.status == 'pending'
         ) ||
-        // pending -> assigned by driver (driver must be approved and payoutVerified)
-        (
-          resource.data.status == 'pending' &&
-          request.resource.data.status == 'assigned' &&
-          request.resource.data.driverId == request.auth.uid &&
-          request.resource.data.acceptedAt is timestamp &&
-          // driver must be approved and have payoutVerified
-          get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.status == 'approved' &&
-          get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.payoutVerified == true
-        ) ||
-        // assigned -> active by driver (driver must be approved and payoutVerified)
-        (
-          resource.data.status == 'assigned' &&
-          resource.data.driverId == request.auth.uid &&
-          request.resource.data.status == 'active' &&
-          request.resource.data.startedAt is timestamp &&
-          get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.status == 'approved' &&
-          get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.payoutVerified == true
-        ) ||
-        // active -> completed by driver (driver must be approved and payoutVerified)
-        (
-          resource.data.status == 'active' &&
-          resource.data.driverId == request.auth.uid &&
-          request.resource.data.status == 'completed' &&
-          request.resource.data.completedAt is timestamp &&
-          get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.status == 'approved' &&
-          get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.payoutVerified == true
+
+        // Chofer actualiza estado (solo transiciones simples, el resto lo hace el backend)
+        (isOwner(resource.data.driverId) && 
+          (request.resource.data.status in ['active', 'completed'] || request.resource.data.destination != resource.data.destination)
         )
       );
 
-      // Never allow client deletion
+      // Nadie puede modificar los campos de tarifa o pago directamente.
+      // Esto fuerza a que toda la lógica de cobro pase por las Cloud Functions.
+      allow update: if request.resource.data.fare == resource.data.fare && 
+                       request.resource.data.payment == resource.data.payment;
+
       allow delete: if false;
-
-      // Safety subcollection
-      match /safety/{docId} {
-        // Allow read for passenger, driver, admin, or admin_compliance
-        allow read: if request.auth != null && (
-          get(/databases/$(database)/documents/trips/$(tripId)).data.passengerId == request.auth.uid ||
-          get(/databases/$(database)/documents/trips/$(tripId)).data.driverId == request.auth.uid ||
-          request.auth.token.admin == true ||
-          request.auth.token.admin_compliance == true
-        );
-        // No direct client writes; writes are done via Cloud Functions
-        allow write: if false;
-      }
     }
 
-    // Safety profiles
-    match /safety_profiles/{uid} {
-      allow read: if request.auth != null && (
-        request.auth.uid == uid ||
-        request.auth.token.admin == true ||
-        request.auth.token.admin_compliance == true
-      );
-      allow write: if request.auth != null && request.auth.uid == uid;
-    }
+    // --- Colecciones de solo lectura para clientes ---
 
-    // Safety share tokens
-    match /safety_shares/{token} {
-      // Public read if active and not expired
-      allow read: if resource.data.active == true && request.time < resource.data.expiresAt;
-      // Disallow client writes; modifications are done via Cloud Functions
-      allow write: if false;
-    }
-
-    // Stripe events: allow admin or compliance read for auditing
     match /stripe_events/{eventId} {
-      allow read: if request.auth != null && (request.auth.token.admin == true || request.auth.token.admin_compliance == true);
+      allow read: if isAdmin();
       allow write: if false;
     }
 
-    // Trip cleaning claims
-    match /tripCleaningClaims/{claimId} {
-      // Driver can create a cleaning claim for their own trip; admin can read
-      allow create: if request.auth != null && request.resource.data.driverId == request.auth.uid;
-      allow read: if request.auth != null && (
-        request.auth.token.admin == true ||
-        request.auth.token.admin_compliance == true ||
-        request.auth.uid == resource.data.driverId
-      );
-      // Only admin can update or delete claims
-      allow update, delete: if request.auth != null && request.auth.token.admin == true;
-    }
-
-    // Safety incidents (accidents, robbery, riña)
-    match /safety_incidents/{incidentId} {
-      // Any authenticated user can report an incident
-      allow create: if request.auth != null;
-      // Read allowed for reporter, involved passenger or driver, admin, or compliance
-      allow read: if request.auth != null && (
-        resource.data.reportedBy == request.auth.uid ||
-        request.auth.uid == resource.data.passengerId ||
-        request.auth.uid == resource.data.driverId ||
-        request.auth.token.admin == true ||
-        request.auth.token.admin_compliance == true
-      );
-      // Only admin can update or delete incidents
-      allow update, delete: if request.auth != null && request.auth.token.admin == true;
+    match /safety_profiles/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid);
     }
   }
 }

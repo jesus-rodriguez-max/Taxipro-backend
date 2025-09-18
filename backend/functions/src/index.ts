@@ -1,36 +1,50 @@
 import * as admin from 'firebase-admin';
-import { https } from 'firebase-functions';
-import { requestTripCallable } from './trips/requestTrip.js';
-import { acceptTripCallable } from './trips/acceptTrip.js';
-import { updateTripStatusCallable } from './trips/updateTripStatus.js';
-import { webhook as stripeWebhook } from './stripe/webhook.js';
+import { https, pubsub } from 'firebase-functions'; // Añadido pubsub
+import { requestTripCallable } from './trips/requestTrip';
+import { acceptTripCallable } from './trips/acceptTrip';
+import { updateTripStatusCallable } from './trips/updateTripStatus';
+import { driverArrivedCallable } from './trips/driverArrived';
+import { cancelTripCallable } from './trips/cancelTrip';
+import { markAsNoShowCallable } from './trips/markAsNoShow';
+import { stripeWebhook } from './stripe/webhook';
+import { updateDriverOnboardingCallable } from './driverOnboarding';
+import { processMembershipPayments as processMembershipPaymentsFunction } from './membership/processMembershipPayments'; // Añadido
 import {
   startRecordingCallable,
   stopRecordingCallable,
   logSafetyEventCallable,
-} from './safety.js';
+} from './safety';
 import {
   enableShareCallable,
   disableShareCallable,
   getShareStatus,
-} from './safetyShare.js';
-import { updateShareLocation } from './updateShareLocation.js';
-import { createDriverSubscriptionSessionCallable } from './createDriverSubscription.js';
+} from './safetyShare';
+import { updateShareLocation } from './updateShareLocation';
+import { createDriverSubscriptionSessionCallable } from './createDriverSubscription';
 import {
   updateTrustedContactsCallable,
   updateSafetyConsentsCallable,
-} from './safetyProfile.js';
+} from './safetyProfile';
 
 // Initialize Firebase Admin
 admin.initializeApp();
+
+// Onboarding
+export const updateDriverOnboarding = https.onCall(updateDriverOnboardingCallable);
 
 // Trip-related callables
 export const requestTrip = https.onCall(requestTripCallable);
 export const acceptTrip = https.onCall(acceptTripCallable);
 export const updateTripStatus = https.onCall(updateTripStatusCallable);
+export const driverArrived = https.onCall(driverArrivedCallable);
+export const cancelTrip = https.onCall(cancelTripCallable);
+export const markAsNoShow = https.onCall(markAsNoShowCallable);
 
 // Stripe webhook (HTTP request)
-export const stripe = https.onRequest(stripeWebhook);
+export { stripeWebhook };
+
+// Scheduled functions
+export const processMembershipPayments = processMembershipPaymentsFunction; // Añadido
 
 // Safety-related callables
 export const startRecording = https.onCall(startRecordingCallable);
