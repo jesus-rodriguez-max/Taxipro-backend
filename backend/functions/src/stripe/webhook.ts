@@ -1,7 +1,7 @@
 import * as functions from 'firebase-functions';
 import { Request, Response } from 'express';
 import Stripe from 'stripe';
-import { stripe, handleStripeWebhook } from './service';
+import { stripe, handleStripeEvent } from './service';
 
 // Obtiene el secreto del webhook de la configuración de entorno de Firebase.
 const webhookSecret = functions.config().stripe.webhook_secret;
@@ -29,7 +29,7 @@ export const stripeWebhook = https.onRequest(async (req: Request, res: Response)
   }
 
   // Llama al manejador de eventos para procesar el evento
-  await handleStripeWebhook(event);
+  await handleStripeEvent(event);
 
   // Responde a Stripe que el evento fue recibido correctamente
   res.status(200).json({ received: true });

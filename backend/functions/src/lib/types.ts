@@ -84,6 +84,8 @@ export interface Driver {
   id: string;
   isApproved: boolean; // Aprobado por admin
   stripeAccountId?: string; // Para Stripe Connected Account
+  stripeSubscriptionId?: string; // ID de la suscripción semanal
+  stripeSubscriptionStatus?: string; // Estado de la suscripción en Stripe
   clabe?: string; // Para transferencias directas
   membership: {
     automaticChargeAuthorized: boolean;
@@ -99,4 +101,18 @@ export interface User {
   stripeCustomerId: string;
   defaultPaymentMethodId?: string; // ID del método de pago por defecto en Stripe
   pendingBalance: number; // Saldo pendiente por penalizaciones no cobradas
+}
+
+export interface OfflineTrip {
+  id: string;
+  from: string; // Número de teléfono del usuario
+  userId: string; // ID del usuario verificado
+  origin: string;
+  destination: string;
+  status: 'pending_sms' | 'assigned' | 'completed' | 'cancelled';
+  createdAt: FieldValue;
+  assignedDriverId?: string;
+  assignedVehicleInfo?: string; // Ej. "Tsuru, Placas ABC-123"
+  eta?: string; // Ej. "5 minutos"
+  estimatedFare?: string; // Ej. "$50 - $70 MXN"
 }

@@ -28,6 +28,10 @@ import {
   updateTrustedContactsCallable,
   updateSafetyConsentsCallable,
 } from './safetyProfile';
+import { createStripeAccountLinkCallable } from './stripe/createStripeAccountLink';
+import { getStripeAccountStatusCallable } from './stripe/getStripeAccountStatus';
+import { createDriverSubscriptionCallable } from './stripe/createDriverSubscription';
+import { receiveOfflineRideRequest } from './twilio/receiveOfflineRideRequest';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -69,3 +73,11 @@ export const createDriverSubscriptionSession = https.onCall(
 // Safety profile functions
 export const updateTrustedContacts = https.onCall(updateTrustedContactsCallable);
 export const updateSafetyConsents = https.onCall(updateSafetyConsentsCallable);
+
+// Stripe Connect and Subscription Functions
+export const createStripeAccountLink = onCall(createStripeAccountLinkCallable);
+export const getStripeAccountStatus = onCall(getStripeAccountStatusCallable);
+export const createDriverSubscription = onCall(createDriverSubscriptionCallable);
+
+// Twilio SMS Webhook
+export const receiveSmsRequest = receiveOfflineRideRequest;

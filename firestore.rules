@@ -51,9 +51,22 @@ service cloud.firestore {
       allow get: if isCompliance() || isAdmin();
     }
 
-    match /shared_trips/{shareToken} {
+        match /shared_trips/{shareToken} {
       // El backend (admin) crea y escribe. La lectura es pública para los enlaces.
       allow get: if true;
       allow write: if isAdmin();
-  }
+    }
+
+    // --- Viajes Offline (SMS) ---
+    match /offline_trips/{tripId} {
+      function isTripPassenger() { return isAuth() && request.auth.uid == resource.data.userId; }
+      function isTripDriver() { return isAuth() && request.auth.uid == resource.data.assignedDriverId; }
+
+      // El backend (admin) es el único que puede crear viajes offline.
+      allow create: if isAdmin();
+      // El pasajero o el chofer asignado pueden leer el viaje.
+      allow get: if isTripPassenger() || isTripDriver() || isAdmin();
+      // El chofer asignado puede actualizar el estado (ej. a 'completed')
+      allow update: if isTripDriver() || isAdmin();
+    }
 }
