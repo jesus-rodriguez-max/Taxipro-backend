@@ -1,68 +1,99 @@
 import * as admin from 'firebase-admin';
 import { pubsub } from 'firebase-functions';
-import { Driver, DriverMembershipStatus } from '../lib/types';
+import { Driver, DriverMembershipStatus, User } from '../lib/types';
 import { createPaymentIntent } from '../stripe/service';
 
-const MEMBERSHIP_FEE_CENTS = 20000; // 200.00 MXN en centavos
+const MEMBERSHIP_FEE = 20000; // 200.00 MXN en centavos
 
 /**
- * Se ejecuta diariamente a las 8:00 AM para procesar los pagos de membresías.
- * El topic es 'membership-payments', que debe ser invocado por Cloud Scheduler.
+ * Función programada para procesar los pagos de membresía de los choferes.
+ * Se ejecuta todos los días a las 5:00 AM.
  */
-export const processMembershipPayments = pubsub.topic('membership-payments').onPublish(async (message) => {
-  const now = new Date();
-  const dayOfWeek = now.getDay(); // Domingo=0, Lunes=1, ..., Sábado=6
+export const processMembershipPayments = pubsub
+  .schedule('0 5 * * *') // Todos los días a las 5 AM
+  .timeZone('America/Mexico_City')
+  .onRun(async (context) => {
+    const firestore = admin.firestore();
+    const today = new Date().getDay(); // Domingo=0, Lunes=1, ..., Sábado=6
 
-  const driversRef = admin.firestore().collection('drivers');
+    // Solo se ejecuta los viernes, sábados y domingos
+    if (![5, 6, 0].includes(today)) {
+      console.log('Hoy no es día de cobro de membresía. Omitiendo ejecución.');
+      return null;
+    }
 
-  if (dayOfWeek === 5) { // Viernes: Primer intento de cobro
-    const snapshot = await driversRef.where('membership.automaticChargeAuthorized', '==', true)
-                                     .where('membership.status', 'in', [DriverMembershipStatus.ACTIVE, DriverMembershipStatus.UNPAID])
-                                     .get();
-    for (const doc of snapshot.docs) {
-      await attemptCharge(doc.id, doc.data() as Driver, 'saturday');
-    }
-  } else if (dayOfWeek === 6) { // Sábado: Segundo intento
-    const snapshot = await driversRef.where('membership.status', '==', DriverMembershipStatus.GRACE_PERIOD)
-                                     .where('membership.nextPaymentDay', '==', 'saturday').get();
-    for (const doc of snapshot.docs) {
-      await attemptCharge(doc.id, doc.data() as Driver, 'sunday');
-    }
-  } else if (dayOfWeek === 0) { // Domingo: Tercer intento
-    const snapshot = await driversRef.where('membership.status', '==', DriverMembershipStatus.GRACE_PERIOD)
-                                     .where('membership.nextPaymentDay', '==', 'sunday').get();
-    for (const doc of snapshot.docs) {
-      await attemptCharge(doc.id, doc.data() as Driver, 'suspend');
-    }
-  } else if (dayOfWeek === 1) { // Lunes: Suspensión
-    const snapshot = await driversRef.where('membership.status', '==', DriverMembershipStatus.GRACE_PERIOD)
-                                     .where('membership.nextPaymentDay', '==', 'suspend').get();
-    for (const doc of snapshot.docs) {
-      await doc.ref.update({ 'membership.status': DriverMembershipStatus.SUSPENDED });
-    }
-  }
-});
+    const driversToChargeQuery = firestore
+      .collection('drivers')
+      .where('membership.status', 'in', [DriverMembershipStatus.ACTIVE, DriverMembershipStatus.GRACE_PERIOD]);
 
-async function attemptCharge(driverId: string, driver: Driver, nextStep: string) {
-  const userRef = admin.firestore().collection('users').doc(driverId);
-  const userDoc = await userRef.get();
-  const user = userDoc.data() as any; // User type from types.ts
-
-  try {
-    if (!user.stripeCustomerId || !user.defaultPaymentMethodId) {
-      throw new Error('Missing Stripe customer or payment method');
+    const snapshot = await driversToChargeQuery.get();
+    if (snapshot.empty) {
+      console.log('No hay choferes para procesar el pago de membresía.');
+      return null;
     }
-    await createPaymentIntent(MEMBERSHIP_FEE_CENTS, 'mxn', user.stripeCustomerId, user.defaultPaymentMethodId);
-    // Si el pago es exitoso (asumimos que el webhook lo manejará, pero actualizamos aquí para simpleza)
-    await admin.firestore().collection('drivers').doc(driverId).update({
-      'membership.status': DriverMembershipStatus.ACTIVE,
-      'membership.lastPaidAt': admin.firestore.FieldValue.serverTimestamp(),
+
+    const chargePromises = snapshot.docs.map(async (doc) => {
+      const driver = doc.data() as Driver;
+      const driverId = doc.id;
+      const userRef = firestore.collection('users').doc(driverId); // Asumimos que el driver es un user
+
+      try {
+        const userDoc = await userRef.get();
+        if (!userDoc.exists) throw new Error(`Usuario ${driverId} no encontrado.`);
+        
+        const user = userDoc.data() as User;
+        if (!user.stripeCustomerId || !user.defaultPaymentMethodId) {
+          throw new Error(`El chofer ${driverId} no tiene un método de pago configurado.`);
+        }
+
+        // Intenta realizar el cobro
+        await createPaymentIntent(MEMBERSHIP_FEE, 'mxn', user.stripeCustomerId, user.defaultPaymentMethodId);
+
+        // Si el pago es exitoso, actualiza el estado a ACTIVO
+        return doc.ref.update({
+          'membership.status': DriverMembershipStatus.ACTIVE,
+          'membership.lastPaymentAttempt': admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+      } catch (error) {
+        console.error(`Fallo el cobro para el chofer ${driverId}:`, error);
+        // Si falla, se mueve a PERIODO DE GRACIA
+        return doc.ref.update({
+          'membership.status': DriverMembershipStatus.GRACE_PERIOD,
+          'membership.lastPaymentAttempt': admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
     });
-  } catch (error) {
-    // Si el pago falla
-    await admin.firestore().collection('drivers').doc(driverId).update({
-      'membership.status': DriverMembershipStatus.GRACE_PERIOD,
-      'membership.nextPaymentDay': nextStep,
+
+    await Promise.all(chargePromises);
+    console.log(`Proceso de pago de membresías completado para ${snapshot.size} choferes.`);
+    return null;
+  });
+
+/**
+ * Función programada para suspender a los miembros con pagos vencidos.
+ * Se ejecuta todos los lunes a las 5:00 AM.
+ */
+export const suspendOverdueMemberships = pubsub
+  .schedule('0 5 * * 1') // Todos los lunes a las 5 AM
+  .timeZone('America/Mexico_City')
+  .onRun(async (context) => {
+    const firestore = admin.firestore();
+    const driversToSuspendQuery = firestore
+      .collection('drivers')
+      .where('membership.status', '==', DriverMembershipStatus.GRACE_PERIOD);
+
+    const snapshot = await driversToSuspendQuery.get();
+    if (snapshot.empty) {
+      console.log('No hay choferes para suspender.');
+      return null;
+    }
+
+    const suspensionPromises = snapshot.docs.map((doc) => {
+      return doc.ref.update({ 'membership.status': DriverMembershipStatus.SUSPENDED });
     });
-  }
-}
+
+    await Promise.all(suspensionPromises);
+    console.log(`${snapshot.size} choferes han sido suspendidos por falta de pago.`);
+    return null;
+  });

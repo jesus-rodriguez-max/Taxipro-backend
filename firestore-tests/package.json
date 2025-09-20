@@ -5,7 +5,11 @@
     "test": "firebase emulators:exec --only firestore --project taxipro-chofer --config ../firebase.json \"npx jest --runInBand\""
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.0",
     "firebase-tools": "^13.0.0",
     "jest": "^29.6.2"
+  },
+  "dependencies": {
+    "taxipro-backend-e2e": "file:.."
   }
 }

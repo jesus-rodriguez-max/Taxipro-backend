@@ -1,59 +1,71 @@
-import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { HttpsError } from 'firebase-functions/v2/https';
+
+interface TrustedContact {
+  name: string;
+  phone: string;
+}
+
+interface UpdateTrustedContactsData {
+  contacts: TrustedContact[];
+}
+
+interface UpdateSafetyConsentsData {
+  hasConsentedToAudioRecording: boolean;
+}
 
 /**
- * Update the trusted contacts for a user.
- * data: { contacts: [{ name: string, phone: string }] }
+ * Actualiza la lista de contactos de confianza de un usuario.
  */
-export const updateTrustedContactsCallable = functions.https.onCall(async (data, context) => {
+export const updateTrustedContactsCallable = async (data: UpdateTrustedContactsData, context: any) => {
   if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Debe iniciar sesión');
+    throw new HttpsError('unauthenticated', 'El usuario no está autenticado.');
   }
-  const userId = context.auth.uid;
-  const contacts = data?.contacts;
-  if (!Array.isArray(contacts)) {
-    throw new functions.https.HttpsError('invalid-argument', 'contacts debe ser un arreglo');
+
+  const uid = context.auth.uid;
+  const { contacts } = data;
+
+  // Validación básica de datos
+  if (!Array.isArray(contacts) || contacts.length > 5) {
+    throw new HttpsError('invalid-argument', 'Debes proporcionar un array de hasta 5 contactos.');
   }
-  // basic validation: each contact must have name and phone
-  for (const c of contacts) {
-    if (!c?.name || !c?.phone) {
-      throw new functions.https.HttpsError('invalid-argument', 'Cada contacto debe tener nombre y teléfono');
+  for (const contact of contacts) {
+    if (!contact.name || !contact.phone) {
+      throw new HttpsError('invalid-argument', 'Cada contacto debe tener un nombre y un teléfono.');
     }
   }
-  const now = admin.firestore.Timestamp.now();
-  await admin.firestore().collection('safety_profiles').doc(userId).set(
-    {
-      trustedContacts: contacts,
-      updatedAt: now,
-    },
-    { merge: true }
-  );
-  return { success: true };
-});
+
+  const userProfileRef = admin.firestore().collection('safety_profiles').doc(uid);
+
+  await userProfileRef.set({ 
+    trustedContacts: contacts,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+
+  return { success: true, message: 'Contactos de confianza actualizados.' };
+};
 
 /**
- * Update safety consent flags for a user.
- * data: { audio: boolean, share: boolean }
+ * Actualiza los consentimientos de seguridad de un usuario.
  */
-export const updateSafetyConsentsCallable = functions.https.onCall(async (data, context) => {
+export const updateSafetyConsentsCallable = async (data: UpdateSafetyConsentsData, context: any) => {
   if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Debe iniciar sesión');
+    throw new HttpsError('unauthenticated', 'El usuario no está autenticado.');
   }
-  const userId = context.auth.uid;
-  const audio = data?.audio;
-  const share = data?.share;
-  if (typeof audio !== 'boolean' || typeof share !== 'boolean') {
-    throw new functions.https.HttpsError('invalid-argument', 'audio y share deben ser booleanos');
+
+  const uid = context.auth.uid;
+  const { hasConsentedToAudioRecording } = data;
+
+  if (typeof hasConsentedToAudioRecording !== 'boolean') {
+    throw new HttpsError('invalid-argument', 'El consentimiento debe ser un valor booleano.');
   }
-  const now = admin.firestore.Timestamp.now();
-  await admin.firestore().collection('safety_profiles').doc(userId).set(
-    {
-      legalConsents: {
-        audio: { accepted: audio, ts: now },
-        share: { accepted: share, ts: now },
-      },
-    },
-    { merge: true }
-  );
-  return { success: true };
-});
+
+  const userProfileRef = admin.firestore().collection('safety_profiles').doc(uid);
+
+  await userProfileRef.set({ 
+    consents: { audioRecording: hasConsentedToAudioRecording },
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+
+  return { success: true, message: 'Consentimientos de seguridad actualizados.' };
+};

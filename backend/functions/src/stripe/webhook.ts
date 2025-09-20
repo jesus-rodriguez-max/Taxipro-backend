@@ -1,4 +1,4 @@
-import { https } from 'firebase-functions';
+import * as functions from 'firebase-functions';
 import { Request, Response } from 'express';
 import Stripe from 'stripe';
 import { stripe, handleStripeWebhook } from './service';
@@ -21,7 +21,7 @@ export const stripeWebhook = https.onRequest(async (req: Request, res: Response)
 
   try {
     // Verifica la firma para asegurar que la solicitud viene de Stripe
-    event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
+    event = stripe.webhooks.constructEvent((req as any).rawBody, sig, webhookSecret);
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     res.status(400).send(`Webhook Error: ${errorMessage}`);

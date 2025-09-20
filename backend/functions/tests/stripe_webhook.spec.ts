@@ -1,4 +1,4 @@
-import { webhook } from '../src/stripe/webhook';
+import { stripeWebhook } from '../src/stripe/webhook';
 import * as admin from 'firebase-admin';
 import Stripe from 'stripe';
 
@@ -53,7 +53,7 @@ describe('Stripe Webhook', () => {
       send: jest.fn(),
     } as any;
 
-    await webhook(req, res);
+    await stripeWebhook(req, res);
 
     expect(res.send).toHaveBeenCalledWith({ received: true });
   });
@@ -74,7 +74,7 @@ describe('Stripe Webhook', () => {
       send: jest.fn(),
     } as any;
 
-    await webhook(req, res);
+    await stripeWebhook(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.send).toHaveBeenCalledWith('Webhook Error: Invalid signature');

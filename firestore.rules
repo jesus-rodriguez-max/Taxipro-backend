@@ -1,88 +1,59 @@
-rules_version = '2';
 
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAuth() {
-      return request.auth != null;
-    }
+    // --- Funciones de Ayuda ---
+    function isAuth() { return request.auth != null; }
+    function getRole() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role; }
+    function isAdmin() { return isAuth() && getRole() == 'admin'; }
+    function isCompliance() { return isAuth() && getRole() == 'compliance'; }
+    function isDriver() { return isAuth() && getRole() == 'driver'; }
+    function isPassenger() { return isAuth() && getRole() == 'passenger'; }
+    function isSelf(uid) { return isAuth() && request.auth.uid == uid; }
 
-    function isAdmin() {
-      return request.auth.token.admin == true;
-    }
-
-    function isOwner(uid) {
-      return isAuth() && request.auth.uid == uid;
-    }
-
-    // Los campos de solo lectura para el cliente, solo modificables por el backend (admin)
-    function isBackendWrite(unchangedFields) {
-      return isAdmin() && request.resource.data.diff(request.resource.data).affectedKeys().hasOnly(unchangedFields) == false;
-    }
-
-    // Users: Propietario o admin pueden leer/escribir, pero con restricciones.
+    // --- Colecciones Principales ---
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      // El usuario puede actualizar sus datos, pero no su saldo pendiente.
-      allow update: if (isOwner(userId) && !('pendingBalance' in request.resource.data.diff(resource.data).affectedKeys())) || isAdmin();
-      allow create: if isOwner(userId);
+      allow read, write: if isSelf(userId);
+      allow list, get: if isAdmin();
     }
 
-    // Drivers: Propietario o admin pueden leer/escribir, pero con restricciones.
     match /drivers/{driverId} {
-      allow read: if isOwner(driverId) || isAdmin();
-      // El chofer puede actualizar su perfil, pero no su estado de aprobación o membresía.
-      allow update: if (isOwner(driverId) && !('isApproved' in request.resource.data.diff(resource.data).affectedKeys() || 'membership' in request.resource.data.diff(resource.data).affectedKeys())) || isAdmin();
-      allow create: if isOwner(driverId);
+      allow read, write: if isSelf(driverId);
+      allow list, get: if isAdmin();
     }
 
-    // Trips: Reglas complejas para la máquina de estados.
     match /trips/{tripId} {
-      allow read: if isAuth() && (resource.data.passengerId == request.auth.uid || resource.data.driverId == request.auth.uid || isAdmin());
+      function isTripPassenger() { return isAuth() && request.auth.uid == resource.data.passengerId; }
+      function isTripDriver() { return isAuth() && request.auth.uid == resource.data.driverId; }
       
-      // Creación: solo el pasajero, con estado PENDING.
-      allow create: if isOwner(request.resource.data.passengerId) && request.resource.data.status == 'pending';
+      allow get: if isTripPassenger() || isTripDriver() || isAdmin() || isCompliance();
+      allow list: if isAdmin() || isCompliance();
+      
+      // El pasajero crea el viaje, pero el backend lo enriquece y gestiona.
+      allow create: if isTripPassenger();
+      // Solo el backend (con credenciales de admin) puede modificar estados críticos.
+      allow update, delete: if isAdmin();
 
-      // Actualización: La lógica principal está en las funciones, las reglas solo validan transiciones simples.
-      allow update: if isAuth() && (
-        isAdmin() || // El admin puede hacer cualquier cosa
-
-        // Pasajero cancela (solo a estados permitidos, la penalización la decide el backend)
-        (isOwner(resource.data.passengerId) && 
-          request.resource.data.status == 'cancelled_by_passenger' && 
-          resource.data.status in ['pending', 'assigned']
-        ) ||
-
-        // Chofer acepta el viaje
-        (isOwner(request.resource.data.driverId) && 
-          request.resource.data.status == 'assigned' && 
-          resource.data.status == 'pending'
-        ) ||
-
-        // Chofer actualiza estado (solo transiciones simples, el resto lo hace el backend)
-        (isOwner(resource.data.driverId) && 
-          (request.resource.data.status in ['active', 'completed'] || request.resource.data.destination != resource.data.destination)
-        )
-      );
-
-      // Nadie puede modificar los campos de tarifa o pago directamente.
-      // Esto fuerza a que toda la lógica de cobro pase por las Cloud Functions.
-      allow update: if request.resource.data.fare == resource.data.fare && 
-                       request.resource.data.payment == resource.data.payment;
-
-      allow delete: if false;
+      // Subcolección para logs de seguridad
+      match /safety_logs/{logId} {
+        allow create: if isTripPassenger(); // El pasajero (cliente) registra el evento
+        allow read: if isTripPassenger() || isAdmin() || isCompliance();
+        allow write, delete: if isAdmin();
+      }
     }
 
-    // --- Colecciones de solo lectura para clientes ---
-
-    match /stripe_events/{eventId} {
-      allow read: if isAdmin();
-      allow write: if false;
+    // --- Módulo de Seguridad ---
+    match /safety_profiles/{userId} {
+      // El usuario es dueño de su perfil de seguridad
+      allow read, write: if isSelf(userId);
+      // El rol de compliance puede leer perfiles en caso de una investigación
+      allow get: if isCompliance() || isAdmin();
     }
 
-    match /safety_profiles/{uid} {
-      allow read: if isOwner(uid) || isAdmin();
-      allow write: if isOwner(uid);
-    }
+    match /shared_trips/{shareToken} {
+      // El backend (admin) crea y escribe. La lectura es pública para los enlaces.
+      allow get: if true;
+      allow write: if isAdmin();
   }
 }

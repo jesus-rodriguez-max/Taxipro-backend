@@ -38,7 +38,7 @@ export const acceptTripCallable = async (data: { tripId: string }, context: func
   const trip = tripDoc.data() as any;
 
   // Only allow accepting trips that are requested/pending
-  if (trip.status && trip.status !== TripStatus.REQUESTED && trip.status !== 'requested') {
+  if (trip.status && trip.status !== TripStatus.PENDING && trip.status !== 'pending') {
     throw new functions.https.HttpsError('failed-precondition', 'Trip cannot be accepted in its current status.');
   }
 
@@ -50,7 +50,7 @@ export const acceptTripCallable = async (data: { tripId: string }, context: func
   });
 
   // Log acceptance
-  log(`Driver ${driverId} accepted trip ${tripId}`);
+  await log(tripId, `Driver ${driverId} accepted trip`, { driverId });
 
   return {
     success: true,

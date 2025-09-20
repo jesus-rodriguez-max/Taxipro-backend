@@ -8,7 +8,10 @@ import { cancelTripCallable } from './trips/cancelTrip';
 import { markAsNoShowCallable } from './trips/markAsNoShow';
 import { stripeWebhook } from './stripe/webhook';
 import { updateDriverOnboardingCallable } from './driverOnboarding';
-import { processMembershipPayments as processMembershipPaymentsFunction } from './membership/processMembershipPayments'; // Añadido
+import {
+  processMembershipPayments as processMembershipPaymentsFunction,
+  suspendOverdueMemberships as suspendOverdueMembershipsFunction,
+} from './membership/processMembershipPayments'; // Añadido
 import {
   startRecordingCallable,
   stopRecordingCallable,
@@ -45,6 +48,7 @@ export { stripeWebhook };
 
 // Scheduled functions
 export const processMembershipPayments = processMembershipPaymentsFunction; // Añadido
+export const suspendOverdueMemberships = suspendOverdueMembershipsFunction; // Añadido
 
 // Safety-related callables
 export const startRecording = https.onCall(startRecordingCallable);

@@ -36,6 +36,7 @@ export const requestTripCallable = async (data: any, context: https.CallableCont
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     audit: { lastActor: 'passenger', lastAction: 'requestTrip' },
+    payment: { method: 'cash', isSettledToDriver: false },
   };
 
   const tripRef = await firestore.collection('trips').add(newTrip);

@@ -1,105 +1,63 @@
 import * as admin from 'firebase-admin';
-import { https } from 'firebase-functions';
-import { TripStatus } from './lib/types.js';
+import { HttpsError, onCall } from 'firebase-functions/v2/https';
 
-export const startRecordingCallable = async (data: any, context: any) => {
-  const { tripId } = data || {};
-  if (!context.auth || !context.auth.uid) {
-    throw new https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
-  }
-  if (!tripId) {
-    throw new https.HttpsError('invalid-argument', 'tripId is required');
-  }
+interface SafetyEventData {
+  tripId: string;
+  type: 'audio_recording_started' | 'audio_recording_stopped' | 'panic_button_pressed';
+  metadata?: Record<string, any>;
+}
 
-  const tripRef = admin.firestore().collection('trips').doc(tripId);
-  const tripSnap = await tripRef.get();
-  if (!tripSnap.exists) {
-    throw new https.HttpsError('not-found', 'Trip not found');
-  }
-  const tripData = tripSnap.data() as any;
-  if (tripData.passengerId !== context.auth.uid) {
-    throw new https.HttpsError('permission-denied', 'Only the passenger can start recording');
-  }
-  if (tripData.status !== TripStatus.ACTIVE && tripData.status !== TripStatus.ASSIGNED && tripData.status !== TripStatus.PENDING) {
-    throw new https.HttpsError('failed-precondition', 'Trip is not active');
-  }
-
-  await tripRef.set({
-    safety: {
-      recording: {
-        enabled: true,
-        startedAt: admin.firestore.FieldValue.serverTimestamp(),
-        // endedAt will be set when stopped
-      }
-    }
-  }, { merge: true });
-
-  return { success: true };
-};
-
-export const stopRecordingCallable = async (data: any, context: any) => {
-  const { tripId } = data || {};
-  if (!context.auth || !context.auth.uid) {
-    throw new https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
-  }
-  if (!tripId) {
-    throw new https.HttpsError('invalid-argument', 'tripId is required');
-  }
-
-  const tripRef = admin.firestore().collection('trips').doc(tripId);
-  const tripSnap = await tripRef.get();
-  if (!tripSnap.exists) {
-    throw new https.HttpsError('not-found', 'Trip not found');
-  }
-  const tripData = tripSnap.data() as any;
-  if (tripData.passengerId !== context.auth.uid) {
-    throw new https.HttpsError('permission-denied', 'Only the passenger can stop recording');
-  }
-
-  await tripRef.set({
-    safety: {
-      recording: {
-        enabled: false,
-        endedAt: admin.firestore.FieldValue.serverTimestamp(),
-      }
-    }
-  }, { merge: true });
-
-  return { success: true };
-};
-
-export const logSafetyEventCallable = async (data: any, context: any) => {
-  const { tripId, type, meta } = data || {};
-  if (!context.auth || !context.auth.uid) {
-    throw new https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
-  }
-  if (!tripId || !type) {
-    throw new https.HttpsError('invalid-argument', 'tripId and type are required');
-  }
-
-  const tripRef = admin.firestore().collection('trips').doc(tripId);
-  const tripSnap = await tripRef.get();
-  if (!tripSnap.exists) {
-    throw new https.HttpsError('not-found', 'Trip not found');
-  }
-  // Accept from passenger or driver, but still ensure they belong to the trip
-  const tripData = tripSnap.data() as any;
-  const userId = context.auth.uid;
-  if (userId !== tripData.passengerId && userId !== tripData.driverId) {
-    throw new https.HttpsError('permission-denied', 'You are not part of this trip');
-  }
-
-  const event = {
-    ts: admin.firestore.FieldValue.serverTimestamp(),
+/**
+ * Registra un evento de seguridad relacionado con un viaje.
+ * Esta es una función genérica para centralizar el logging de eventos de seguridad.
+ */
+const logEvent = async (tripId: string, type: SafetyEventData['type'], passengerId: string, metadata: any = {}) => {
+  const logRef = admin.firestore().collection('trips').doc(tripId).collection('safety_logs').doc();
+  
+  await logRef.set({
     type,
-    meta: meta || null,
-  };
-
-  await tripRef.set({
-    safety: {
-      events: admin.firestore.FieldValue.arrayUnion(event),
-    }
-  }, { merge: true });
-
-  return { success: true };
+    passengerId,
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    ...metadata,
+  });
 };
+
+/**
+ * Notifica al backend que la grabación de audio ha comenzado.
+ */
+export const startRecordingCallable = onCall(async (request) => {
+  const { auth, data } = request;
+  if (!auth) throw new HttpsError('unauthenticated', 'Autenticación requerida.');
+
+  const { tripId } = data as { tripId: string };
+  await logEvent(tripId, 'audio_recording_started', auth.uid);
+  return { success: true };
+});
+
+/**
+ * Notifica al backend que la grabación de audio ha finalizado.
+ */
+export const stopRecordingCallable = onCall(async (request) => {
+  const { auth, data } = request;
+  if (!auth) throw new HttpsError('unauthenticated', 'Autenticación requerida.');
+
+  const { tripId } = data as { tripId: string };
+  await logEvent(tripId, 'audio_recording_stopped', auth.uid);
+  return { success: true };
+});
+
+/**
+ * Registra un evento de seguridad genérico, como la activación de un botón de pánico.
+ */
+export const logSafetyEventCallable = onCall(async (request) => {
+  const { auth, data } = request;
+  if (!auth) throw new HttpsError('unauthenticated', 'Autenticación requerida.');
+
+  const { tripId, type, metadata } = data as SafetyEventData;
+  if (!tripId || !type) {
+    throw new HttpsError('invalid-argument', 'Se requiere tripId y type.');
+  }
+
+  await logEvent(tripId, type, auth.uid, metadata);
+  return { success: true, message: `Evento '${type}' registrado.` };
+});

@@ -1,10 +1,10 @@
-import { initializeTestEnvironment, assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
-import { readFileSync } from "fs";
+const { initializeTestEnvironment, assertSucceeds, assertFails } = require("@firebase/rules-unit-testing");
+const { readFileSync } = require("fs");
 
 // Load the Firestore rules from the compiled repository.  Jest will resolve
 // this relative path at runtime.  If you relocate the rules file, update the
 // import accordingly.
-const rules = readFileSync(new URL("../rules/firestore.rules", import.meta.url), "utf8");
+const rules = readFileSync("../firestore.rules", "utf8");
 
 /**
  * Extended Firestore rules tests

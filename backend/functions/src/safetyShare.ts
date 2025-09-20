@@ -1,146 +1,120 @@
-import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { TripStatus } from './lib/types.js';
-import { log } from './lib/logging.js';
+import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { onRequest } from 'firebase-functions/v2/http';
+import { Trip, TripStatus } from '../lib/types';
+import * as crypto from 'crypto';
+
+interface EnableShareData {
+  tripId: string;
+}
+
+interface DisableShareData {
+  shareToken: string;
+}
+
+// Función para generar un token seguro
+const generateShareToken = () => crypto.randomBytes(20).toString('hex');
 
 /**
- * Habilita el modo compartir viaje. Crea un token público, lo guarda en
- * `safety_shares/{token}` y actualiza el subdocumento safety.share del viaje.
- *
- * data: { tripId: string, recipients?: string[] }
+ * Habilita la compartición de un viaje, generando un token de acceso.
  */
-export const enableShareCallable = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Debe iniciar sesión');
-  }
-  const { tripId, recipients } = data;
-  if (!tripId) {
-    throw new functions.https.HttpsError('invalid-argument', 'tripId es obligatorio');
+export const enableShareCallable = onCall(async (request) => {
+  const { auth, data } = request;
+  if (!auth) {
+    throw new HttpsError('unauthenticated', 'El usuario no está autenticado.');
   }
 
-  const userId = context.auth.uid;
+  const { tripId } = data as EnableShareData;
   const tripRef = admin.firestore().collection('trips').doc(tripId);
-  const tripSnap = await tripRef.get();
-  if (!tripSnap.exists) {
-    throw new functions.https.HttpsError('not-found', 'El viaje no existe');
+  const tripDoc = await tripRef.get();
+
+  if (!tripDoc.exists) {
+    throw new HttpsError('not-found', 'El viaje no existe.');
   }
-  const trip = tripSnap.data();
-  if (trip!.passengerId !== userId) {
-    throw new functions.https.HttpsError('permission-denied', 'Solo el pasajero puede compartir su viaje');
-  }
-  if (![TripStatus.ACTIVE, TripStatus.ASSIGNED].includes(trip!.status)) {
-    throw new functions.https.HttpsError('failed-precondition', 'Solo se puede compartir un viaje activo o asignado');
+  const trip = tripDoc.data() as Trip;
+
+  if (trip.passengerId !== auth.uid && trip.driverId !== auth.uid) {
+    throw new HttpsError('permission-denied', 'No puedes compartir este viaje.');
   }
 
-  // Generar token único y establecer expiración de 24 horas
-  const token = admin.firestore().collection('safety_shares').doc().id;
-  const now = admin.firestore.Timestamp.now();
-  const expiresAt = admin.firestore.Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000);
+  const shareToken = generateShareToken();
+  const shareRef = admin.firestore().collection('shared_trips').doc(shareToken);
 
-  await admin.firestore().collection('safety_shares').doc(token).set({
-    tripId,
-    active: true,
-    expiresAt,
-    lastLocation: trip!.location || null,
-    status: trip!.status,
-    createdAt: now,
+  await shareRef.set({
+    tripId: tripId,
+    passengerId: trip.passengerId,
+    isActive: true,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000), // Expira en 24h
   });
 
-  await tripRef.update({
-    'safety.share': {
-      active: true,
-      linkToken: token,
-      recipients: recipients ?? null,
-      startedAt: now,
-    },
-  });
-
-  await log('ShareEnabled', { tripId, token });
-  return { token, expiresAt: expiresAt.toDate().toISOString() };
+  return { success: true, shareToken };
 });
 
 /**
- * Deshabilita el modo compartir viaje. Marca share.active = false y expira el token.
- *
- * data: { tripId: string }
+ * Deshabilita la compartición de un viaje.
  */
-export const disableShareCallable = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Debe iniciar sesión');
-  }
-  const { tripId } = data;
-  if (!tripId) {
-    throw new functions.https.HttpsError('invalid-argument', 'tripId es obligatorio');
+export const disableShareCallable = onCall(async (request) => {
+  const { auth, data } = request;
+  if (!auth) {
+    throw new HttpsError('unauthenticated', 'El usuario no está autenticado.');
   }
 
-  const userId = context.auth.uid;
-  const tripRef = admin.firestore().collection('trips').doc(tripId);
-  const tripSnap = await tripRef.get();
-  if (!tripSnap.exists) {
-    throw new functions.https.HttpsError('not-found', 'El viaje no existe');
-  }
-  const trip = tripSnap.data();
-  if (trip!.passengerId !== userId) {
-    throw new functions.https.HttpsError('permission-denied', 'Solo el pasajero puede desactivar el compartir');
-  }
-  const token = trip?.safety?.share?.linkToken;
-  if (!token) {
-    throw new functions.https.HttpsError('failed-precondition', 'El viaje no tiene enlace activo');
+  const { shareToken } = data as DisableShareData;
+  const shareRef = admin.firestore().collection('shared_trips').doc(shareToken);
+  const shareDoc = await shareRef.get();
+
+  if (!shareDoc.exists) {
+    throw new HttpsError('not-found', 'El token de compartición no es válido.');
   }
 
-  const now = admin.firestore.Timestamp.now();
+  if (shareDoc.data()?.passengerId !== auth.uid) {
+    throw new HttpsError('permission-denied', 'No tienes permiso para detener esta compartición.');
+  }
 
-  await admin.firestore().collection('safety_shares').doc(token).update({
-    active: false,
-    expiresAt: now,
-  });
+  await shareRef.update({ isActive: false });
 
-  await tripRef.update({
-    'safety.share.active': false,
-    'safety.share.endedAt': now,
-  });
-
-  await log('ShareDisabled', { tripId, token });
-  return { success: true };
+  return { success: true, message: 'Se ha detenido la compartición del viaje.' };
 });
 
 /**
- * Devuelve la ubicación y estado del viaje para un token dado.
- * Este endpoint es HTTP público y se usa desde el enlace compartido.
+ * Función HTTP para obtener el estado de un viaje compartido usando un token.
+ * Es pública pero solo expone datos mínimos y seguros.
  */
-export const getShareStatus = functions.https.onRequest(async (req, res) => {
-  const token = (req.query.token as string) || (req.params.token as string);
-  if (!token) {
-    res.status(400).json({ error: 'token requerido' });
+export const getShareStatus = onRequest({ cors: true }, async (req, res) => {
+  const { token } = req.query;
+  if (typeof token !== 'string') {
+    res.status(400).send('Token no proporcionado.');
     return;
   }
 
-  const shareSnap = await admin.firestore().collection('safety_shares').doc(token).get();
-  if (!shareSnap.exists) {
-    res.status(404).json({ error: 'enlace no encontrado' });
-    return;
-  }
-  const share = shareSnap.data()!;
-  const now = admin.firestore.Timestamp.now();
-  if (!share.active || share.expiresAt.toMillis() <= now.toMillis()) {
-    res.status(410).json({ error: 'enlace expirado' });
+  const shareRef = admin.firestore().collection('shared_trips').doc(token);
+  const shareDoc = await shareRef.get();
+
+  if (!shareDoc.exists || !shareDoc.data()?.isActive) {
+    res.status(404).send('El viaje compartido no está activo o no existe.');
     return;
   }
 
-  const tripSnap = await admin.firestore().collection('trips').doc(share.tripId).get();
-  const trip = tripSnap.data();
+  const tripId = shareDoc.data()?.tripId;
+  const tripRef = admin.firestore().collection('trips').doc(tripId);
+  const tripDoc = await tripRef.get();
 
-  // Devolver solo los campos necesarios
-  res.json({
-    tripId: share.tripId,
-    status: share.status,
-    lastLocation: share.lastLocation ?? null,
-    driver: trip?.driverId
-      ? {
-          id: trip.driverId,
-          name: trip.driver?.name ?? null,
-          vehicle: trip.driver?.vehicle ?? null,
-        }
-      : null,
-  });
+  if (!tripDoc.exists) {
+    res.status(404).send('El viaje asociado no fue encontrado.');
+    return;
+  }
+
+  const trip = tripDoc.data() as Trip;
+
+  // Exponer solo datos seguros y mínimos
+  const safeData = {
+    status: trip.status,
+    lastKnownLocation: trip.lastKnownLocation || null,
+    driverArrivedAt: trip.driverArrivedAt || null,
+    startedAt: trip.startedAt || null,
+    completedAt: trip.completedAt || null,
+  };
+
+  res.status(200).json(safeData);
 });
