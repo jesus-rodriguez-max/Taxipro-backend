@@ -1,10 +1,10 @@
 import Stripe from 'stripe';
-import { functions } from 'firebase-functions';
+import * as functions from 'firebase-functions';
 
 // Inicializa el cliente de Stripe con la clave secreta obtenida de forma segura
 // desde la configuración de entorno de Firebase.
 export const stripe = new Stripe(functions.config().stripe.secret, {
-  apiVersion: '2024-06-20', // Usa una versión de API fija
+  apiVersion: '2024-04-10', // Usa una versión de API fija y soportada
   typescript: true,
 });
 

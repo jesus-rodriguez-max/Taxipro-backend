@@ -1,1 +1,0 @@
-// This directory is deprecated. The active source code is in /backend/functions.

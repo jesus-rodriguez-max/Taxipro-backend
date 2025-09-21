@@ -1,6 +1,6 @@
 {
   "functions": {
-    "source": "backend/functions",
+    "source": "functions",
     "runtime": "nodejs22"
   },
   "firestore": {
@@ -8,22 +8,17 @@
     "indexes": "firestore.indexes.json"
   },
   "emulators": {
-    "auth": {
-      "host": "127.0.0.1",
-      "port": 9199
-    },
-    "firestore": {
-      "host": "127.0.0.1",
-      "port": 8180
-    },
-    "functions": {
-      "host": "127.0.0.1",
-      "port": 5001
-    },
-    "ui": {
-      "enabled": true,
-      "host": "127.0.0.1",
-      "port": 4000
-    }
+  "auth": {
+    "port": 9199
+  },
+  "functions": {
+    "port": 5001
+  },
+  "firestore": {
+    "port": 8180
+  },
+  "ui": {
+    "enabled": true,
+    "port": 4000
   }
 }

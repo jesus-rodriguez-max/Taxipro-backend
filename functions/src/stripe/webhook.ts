@@ -1,7 +1,9 @@
-import * as functions from 'firebase-functions';
+import { https } from 'firebase-functions';
 import { Request, Response } from 'express';
 import Stripe from 'stripe';
 import { stripe, handleStripeWebhook } from './service';
+import * as functions from 'firebase-functions';
+
 
 // Obtiene el secreto del webhook de la configuración de entorno de Firebase.
 const webhookSecret = functions.config().stripe.webhook_secret;

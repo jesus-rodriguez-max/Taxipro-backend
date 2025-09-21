@@ -3,16 +3,26 @@ module.exports = {
   env: {
     es6: true,
     node: true,
+    jest: true,
   },
   extends: [
-    "eslint:recommended",
-    "google",
+    'eslint:recommended',
+    'plugin:@typescript-eslint/recommended',
+    'prettier',
   ],
+  parser: '@typescript-eslint/parser',
   parserOptions: {
-    ecmaVersion: 2020,
+    project: ['tsconfig.json', 'tsconfig.dev.json'],
+    sourceType: 'module',
   },
+  ignorePatterns: [
+    '/lib/**/*', // Ignore built files.
+  ],
+  plugins: [
+    '@typescript-eslint',
+    'prettier',
+  ],
   rules: {
-    quotes: ["error", "double"],
-    indent: ["error", 2],
+    'prettier/prettier': 'error',
   },
 };
