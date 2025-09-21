@@ -28,6 +28,7 @@ import {
   updateTrustedContactsCallable,
   updateSafetyConsentsCallable,
 } from './safetyProfile';
+import { submitRating as submitRatingCallable } from './ratings/submitRating';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -69,3 +70,6 @@ export const createDriverSubscriptionSession = https.onCall(
 // Safety profile functions
 export const updateTrustedContacts = https.onCall(updateTrustedContactsCallable);
 export const updateSafetyConsents = https.onCall(updateSafetyConsentsCallable);
+
+// Ratings functions
+export const submitRating = https.onCall(submitRatingCallable);

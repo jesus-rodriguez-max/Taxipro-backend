@@ -56,4 +56,21 @@ service cloud.firestore {
       allow get: if true;
       allow write: if isAdmin();
   }
+
+    match /ratings/{ratingId} {
+      allow read: if isSelf(resource.data.passengerId) ||
+                     (isDriver() && resource.data.driverId == request.auth.uid) ||
+                     isAdmin() ||
+                     isCompliance();
+
+      allow create: if isPassenger() &&
+                       isSelf(request.resource.data.passengerId) &&
+                       request.resource.data.rating >= 1 &&
+                       request.resource.data.rating <= 5 &&
+                       exists(/databases/$(database)/documents/trips/$(request.resource.data.tripId)) &&
+                       get(/databases/$(database)/documents/trips/$(request.resource.data.tripId)).data.status == 'completed' &&
+                       get(/databases/$(database)/documents/trips/$(request.resource.data.tripId)).data.passengerId == request.auth.uid;
+
+      allow write, delete: if isAdmin();
+    }
 }
