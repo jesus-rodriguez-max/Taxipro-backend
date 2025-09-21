@@ -53,7 +53,7 @@ service cloud.firestore {
 
     match /shared_trips/{shareToken} {
       // El backend (admin) crea y escribe. La lectura es pública para los enlaces.
-      allow get: if true;
+      allow get: if resource.data.active == true;
       allow write: if isAdmin();
   }
 

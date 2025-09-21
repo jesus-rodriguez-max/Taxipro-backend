@@ -18,6 +18,14 @@ export enum TripStatus {
   CANCELLED_BY_DRIVER = 'cancelled_by_driver', // Chofer canceló
   CANCELLED_WITH_PENALTY = 'cancelled_with_penalty', // Pasajero canceló tarde, se aplicó penalización
   NO_SHOW = 'no_show', // Pasajero no se presentó, se aplicó penalización
+
+  // Flujo de pagos
+  PAYMENT_FAILED = 'payment_failed', // El cobro de Stripe falló
+  REFUNDED = 'refunded', // El cobro de Stripe fue reembolsado
+
+  // Flujo de desconexión
+  DISCONNECTED = 'disconnected', // Viaje sin actualizaciones de ubicación
+  PENDING_REVIEW = 'pending_review', // Viaje requiere revisión manual por soporte
 }
 
 export interface Stop {
