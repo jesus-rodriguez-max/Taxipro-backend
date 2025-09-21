@@ -1,59 +1,67 @@
-
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // --- Funciones de Ayuda ---
     function isAuth() { return request.auth != null; }
-    function getRole() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role; }
-    function isAdmin() { return isAuth() && getRole() == 'admin'; }
-    function isCompliance() { return isAuth() && getRole() == 'compliance'; }
-    function isDriver() { return isAuth() && getRole() == 'driver'; }
-    function isPassenger() { return isAuth() && getRole() == 'passenger'; }
     function isSelf(uid) { return isAuth() && request.auth.uid == uid; }
+    function getRole(uid) { return get(/databases/$(database)/documents/users/$(uid)).data.role; }
+    function isAdmin() { return isAuth() && getRole(request.auth.uid) == 'admin'; }
+    function isCompliance() { return isAuth() && getRole(request.auth.uid) == 'compliance'; }
 
-    // --- Colecciones Principales ---
+    // --- REGLA 2 & 8: Usuarios y Aceptación de Términos ---
     match /users/{userId} {
-      allow read, write: if isSelf(userId);
-      allow list, get: if isAdmin();
+      allow read, update, delete: if isSelf(userId);
+      allow list, get: if isAdmin() || isCompliance();
+      allow create: if isSelf(userId) && 
+                      request.resource.data.acceptedTerms == true &&
+                      request.resource.data.acceptedPrivacy == true;
     }
 
+    // --- REGLA 9: Validación de Choferes ---
     match /drivers/{driverId} {
-      allow read, write: if isSelf(driverId);
-      allow list, get: if isAdmin();
-    }
+      allow read: if isSelf(driverId) || isAdmin() || isCompliance();
+      allow create: if isSelf(driverId) && request.resource.data.status == 'pending';
+      allow update: if (isAdmin() || isCompliance()) && request.resource.data.status != resource.data.status;
 
-    match /trips/{tripId} {
-      function isTripPassenger() { return isAuth() && request.auth.uid == resource.data.passengerId; }
-      function isTripDriver() { return isAuth() && request.auth.uid == resource.data.driverId; }
-      
-      allow get: if isTripPassenger() || isTripDriver() || isAdmin() || isCompliance();
-      allow list: if isAdmin() || isCompliance();
-      
-      // El pasajero crea el viaje, pero el backend lo enriquece y gestiona.
-      allow create: if isTripPassenger();
-      // Solo el backend (con credenciales de admin) puede modificar estados críticos.
-      allow update, delete: if isAdmin();
-
-      // Subcolección para logs de seguridad
-      match /safety_logs/{logId} {
-        allow create: if isTripPassenger(); // El pasajero (cliente) registra el evento
-        allow read: if isTripPassenger() || isAdmin() || isCompliance();
-        allow write, delete: if isAdmin();
+      match /documents/{docId} {
+        allow read: if isSelf(driverId) || isAdmin();
+        allow write: if isAdmin();
       }
     }
 
-    // --- Módulo de Seguridad ---
-    match /safety_profiles/{userId} {
-      // El usuario es dueño de su perfil de seguridad
-      allow read, write: if isSelf(userId);
-      // El rol de compliance puede leer perfiles en caso de una investigación
-      allow get: if isCompliance() || isAdmin();
+    // --- REGLA 1: Viajes ---
+    match /trips/{tripId} {
+      function isPassenger() { return isAuth() && request.auth.uid == resource.data.passengerId; }
+      function isDriver() { return isAuth() && request.auth.uid == resource.data.driverId; }
+      
+      allow get: if isPassenger() || isDriver();
+      allow create: if isAuth() && request.auth.uid == request.resource.data.passengerId && request.resource.data.status == 'pending';
+      allow update: if isAdmin() || isCompliance(); // Solo el backend puede cambiar estados
+
+      // --- REGLA 6: Logs (Subcolección) ---
+      match /logs/{logId} {
+        allow read: if isAuth();
+        allow write: if isAdmin();
+      }
     }
 
+    // --- REGLA 3: Perfiles de Seguridad ---
+    match /safety_profiles/{userId} {
+      allow read, write: if isSelf(userId);
+    }
+
+    // --- REGLA 4: Viajes Compartidos ---
     match /shared_trips/{shareToken} {
-      // El backend (admin) crea y escribe. La lectura es pública para los enlaces.
-      allow get: if true;
+      allow read: if resource.data.isActive == true;
       allow write: if isAdmin();
+    }
+
+    // --- REGLA 7: Tarifas ---
+    match /fares/tariffs {
+        allow read: if isAuth();
+        allow write: if isAdmin();
+    }
   }
 }

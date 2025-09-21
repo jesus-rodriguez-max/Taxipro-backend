@@ -1,30 +1,40 @@
-name: Backend CI
+name: Backend CI & Tests
 
 on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  build:
+  run-tests:
+    name: Run All Tests
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: '22' # Actualizado a la versión correcta
+          cache: 'npm'
+          cache-dependency-path: functions/package-lock.json
 
-      - name: Install dependencies
-        working-directory: backend
-        run: npm install
+      # El emulador de Firestore para pruebas de reglas necesita Java
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: Build project
-        working-directory: backend
-        run: npm run build --if-present
+      - name: Install Dependencies
+        run: npm ci # 'ci' es más rápido y seguro para CI
+        working-directory: ./functions # Apunta al directorio correcto
 
-      - name: Run tests
-        working-directory: backend
-        run: npm test --if-present
+      - name: Run Unit and Rules Tests
+        run: npm test # Ejecuta todos los archivos .spec/.test.ts por defecto
+        working-directory: ./functions # Apunta al directorio correcto

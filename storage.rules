@@ -1,34 +1,24 @@
 rules_version = '2';
+
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Reglas para la subida de audio del Escudo TaxiPro
+    // --- REGLA 5: Audios de Viaje ---
     match /trip_audio/{tripId}/{userId}/{chunkId} {
-      
-      function isTripPassenger() {
-        // Verifica que el usuario que sube el archivo es el pasajero del viaje
-        return exists(/databases/$(database)/documents/trips/$(tripId)) &&
-               get(/databases/$(database)/documents/trips/$(tripId)).data.passengerId == request.auth.uid;
+      function isTripPassenger(db) {
+        return get(/databases/$(db)/documents/trips/$(tripId)).data.passengerId == request.auth.uid;
+      }
+      function getRole(db, uid) { 
+        return get(/databases/$(db)/documents/users/$(uid)).data.role; 
+      }
+      function isAdminOrCompliance(db) {
+        let role = getRole(db, request.auth.uid);
+        return request.auth != null && (role == 'admin' || role == 'compliance');
       }
 
-      function isComplianceOrAdmin() {
-        // Verifica si el usuario tiene el rol de 'compliance' o 'admin'
-        let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-        return userRole == 'compliance' || userRole == 'admin';
-      }
-
-      // PERMISOS:
-      // 1. Creación (subida): Solo el pasajero del viaje puede subir archivos de audio.
-      //    El `userId` en la ruta debe coincidir con el UID del solicitante.
-      allow create: if request.auth != null && request.auth.uid == userId && isTripPassenger();
-
-      // 2. Lectura: Solo personal de compliance o administradores pueden leer/descargar el audio.
-      allow read: if request.auth != null && isComplianceOrAdmin();
-
-      // 3. Actualización y Eliminación: Nadie puede modificar o eliminar los chunks de audio para
-      //    garantizar la integridad de la evidencia. La eliminación se puede gestionar con
-      //    políticas de ciclo de vida de Storage.
-      allow update, delete: if false;
+      allow create: if request.auth != null && request.auth.uid == userId && isTripPassenger(database);
+      allow read: if isAdminOrCompliance(database);
+      allow update, delete: if false; // Inmutable
     }
   }
 }
