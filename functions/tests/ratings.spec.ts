@@ -83,7 +83,7 @@ describe('submitRating Callable Function', () => {
     const data = { tripId, rating: 4 };
     const context = authenticatedContext(passengerId);
 
-    await expect(wrappedSubmitRating(data, context)).rejects.toThrow();  });
+    await expect(wrappedSubmitRating(data, context)).rejects.toThrow();
 
   it('❌ Pasajero intenta calificar un trip que no es suyo → error', async () => {
     const passengerId = 'passenger3';
