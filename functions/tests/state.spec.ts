@@ -27,4 +27,34 @@ describe('State Library', () => {
     expect(next).toContain(TripStatus.COMPLETED);
     expect(next).toContain(TripStatus.CANCELLED);
   });
+
+  // --- Added coverage for new valid transitions ---
+  it('should allow ASSIGNED -> ARRIVED', () => {
+    expect(canTransition(TripStatus.ASSIGNED, TripStatus.ARRIVED)).toBe(true);
+  });
+
+  it('should allow ARRIVED -> NO_SHOW', () => {
+    expect(canTransition(TripStatus.ARRIVED, TripStatus.NO_SHOW)).toBe(true);
+  });
+
+  it('should allow ACTIVE -> DISCONNECTED', () => {
+    expect(canTransition(TripStatus.ACTIVE, TripStatus.DISCONNECTED)).toBe(true);
+  });
+
+  it('should allow COMPLETED -> PAYMENT_FAILED', () => {
+    expect(canTransition(TripStatus.COMPLETED, TripStatus.PAYMENT_FAILED)).toBe(true);
+  });
+
+  it('should allow COMPLETED -> REFUNDED', () => {
+    expect(canTransition(TripStatus.COMPLETED, TripStatus.REFUNDED)).toBe(true);
+  });
+
+  // --- Confirm some invalid transitions remain disallowed ---
+  it('should not allow PENDING -> COMPLETED (redundant check)', () => {
+    expect(canTransition(TripStatus.PENDING, TripStatus.COMPLETED)).toBe(false);
+  });
+
+  it('should not allow COMPLETED -> ACTIVE (redundant check)', () => {
+    expect(canTransition(TripStatus.COMPLETED, TripStatus.ACTIVE)).toBe(false);
+  });
 });

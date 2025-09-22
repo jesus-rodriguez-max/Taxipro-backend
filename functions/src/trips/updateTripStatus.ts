@@ -2,6 +2,7 @@ import * as admin from 'firebase-admin';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { Trip, TripStatus, GeoPoint, Stop } from '../lib/types';
 import { getDistanceInMeters } from '../lib/geo';
+import { canTransition } from '../lib/state';
 
 // --- Constantes de Configuración ---
 const BASE_FARE = 5000; // 50.00 MXN en centavos
@@ -52,6 +53,10 @@ export const updateTripStatusCallable = async (data: UpdateTripData, context: an
 
   // 4. Cambio de Estado
   if (newStatus) {
+    // Validar transición de estado antes de aplicar cambios
+    if (!canTransition(trip.status, newStatus)) {
+      throw new HttpsError('failed-precondition', 'Invalid status transition');
+    }
     await handleStatusChange(tripDoc.id, trip, newStatus, batch, tripRef);
     if (newStatus === TripStatus.COMPLETED) {
       response.message = 'Viaje completado. Calculando tarifa final.';

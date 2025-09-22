@@ -1,7 +1,7 @@
 import { TripStatus } from '../constants/tripStatus';
 
 const validTransitions: Record<TripStatus, TripStatus[]> = {
-  [TripStatus.PENDING]: [TripStatus.ASSIGNED],
+  [TripStatus.PENDING]: [TripStatus.ASSIGNED, TripStatus.CANCELLED, TripStatus.CANCELLED_BY_PASSENGER],
   // A driver can mark arrival before starting the trip
   [TripStatus.ASSIGNED]: [
     TripStatus.ARRIVED,
