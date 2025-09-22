@@ -123,6 +123,7 @@ async function handleStatusChange(tripId: string, trip: Trip, newStatus: TripSta
       // Aquí se añadiría la lógica de cobro (Stripe o efectivo)
       // y la gestión del saldo pendiente.
     }
+  }
 
   batch.update(ref, update);
 }
