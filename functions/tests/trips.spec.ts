@@ -48,7 +48,20 @@ describe('Trip Functions', () => {
       const data = {
         origin: { point: { lat: 1, lng: 1 }, address: 'Origin' },
         destination: { point: { lat: 2, lng: 2 }, address: 'Destination' },
+        estimatedDistanceKm: 1,
       };
+
+      // Ensure tariffs exist for requestTrip
+      docGetMock.mockImplementation((docRef: any) => {
+        if (docRef.path === 'fares/tariffs') {
+          return Promise.resolve({
+            exists: true,
+            data: () => ({ baseFareDay: 10, baseFareNight: 12, perKm: 5, currency: 'MXN', active: true }),
+          });
+        }
+        return Promise.resolve({ exists: false });
+      });
+
       const result = await wrappedRequestTrip(data, context as any);
       expect(result).toMatchObject({ tripId: 'test-trip-id' });
     });

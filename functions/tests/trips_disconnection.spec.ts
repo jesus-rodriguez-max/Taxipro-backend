@@ -1,7 +1,7 @@
 import * as admin from 'firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { TripStatus } from '../src/constants/tripStatus';   // ✅ corregido
-import { checkDisconnectedTrips } from '../src/trips/checkDisconnectedTrips'; // ✅ agregado
+import { checkDisconnectedTripsHandler } from '../src/trips/checkDisconnectedTrips'; // ✅ usar handler puro
 import { resetMockFirestore } from './mocks/firebase';
 
 admin.initializeApp();
@@ -32,7 +32,7 @@ describe('Trip Disconnection Handling', () => {
     const fiveMinutesAgo = new Timestamp(Timestamp.now().seconds - (5 * 60 + 1), 0); // 5 minutes and 1 second ago
     await createTrip(tripId, TripStatus.ACTIVE, fiveMinutesAgo);
 
-    await checkDisconnectedTrips({} as any);
+    await checkDisconnectedTripsHandler();
 
     const updatedTrip = await db.collection('trips').doc(tripId).get();
     expect(updatedTrip.exists).toBe(true);
@@ -45,7 +45,7 @@ describe('Trip Disconnection Handling', () => {
     const sixtyMinutesAgo = new Timestamp(Timestamp.now().seconds - (60 * 60 + 1), 0); // 60 minutes and 1 second ago
     await createTrip(tripId, TripStatus.DISCONNECTED, sixtyMinutesAgo);
 
-    await checkDisconnectedTrips({} as any);
+    await checkDisconnectedTripsHandler();
 
     const updatedTrip = await db.collection('trips').doc(tripId).get();
     expect(updatedTrip.exists).toBe(true);
@@ -58,7 +58,7 @@ describe('Trip Disconnection Handling', () => {
     const oneMinuteAgo = new Timestamp(Timestamp.now().seconds - (1 * 60), 0); // 1 minute ago
     await createTrip(tripId, TripStatus.ACTIVE, oneMinuteAgo);
 
-    await checkDisconnectedTrips({} as any);
+    await checkDisconnectedTripsHandler();
 
     const updatedTrip = await db.collection('trips').doc(tripId).get();
     expect(updatedTrip.exists).toBe(true);
@@ -70,7 +70,7 @@ describe('Trip Disconnection Handling', () => {
     const thirtyMinutesAgo = new Timestamp(Timestamp.now().seconds - (30 * 60), 0); // 30 minutes ago
     await createTrip(tripId, TripStatus.DISCONNECTED, thirtyMinutesAgo);
 
-    await checkDisconnectedTrips({} as any);
+    await checkDisconnectedTripsHandler();
 
     const updatedTrip = await db.collection('trips').doc(tripId).get();
     expect(updatedTrip.exists).toBe(true);

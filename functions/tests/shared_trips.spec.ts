@@ -1,7 +1,7 @@
 import * as admin from 'firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { updateTripStatusCallable } from '../src/trips/updateTripStatus';
-import { cleanupSharedTrips } from '../src/sharedTrips/cleanupSharedTrips';
+import { cleanupSharedTripsHandler } from '../src/sharedTrips/cleanupSharedTrips';
 import { TripStatus } from '../src/constants/tripStatus';
 import { resetMockFirestore } from './mocks/firebase';
 
@@ -105,8 +105,8 @@ describe('Shared Trips Functionality', () => {
     // Create an active and not expired shared trip
     await createSharedTrip(shareTokenActive, tripId, true, Timestamp.now());
 
-    // Run the cleanup function
-    await cleanupSharedTrips({} as any);
+    // Run the cleanup handler (pure function)
+    await cleanupSharedTripsHandler();
 
     // Verify deletion
     const expiredDoc = await db.collection('shared_trips').doc(shareTokenExpired).get();

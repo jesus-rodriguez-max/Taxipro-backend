@@ -143,10 +143,12 @@ function makeCollection(path: string, isSub = false) {
       const col = Object.entries(collStore(path, isSub));
       let rows = filters.length ? filterDocs(col, filters) : col;
       if (typeof lim === 'number') rows = rows.slice(0, lim);
+      const docsArr = rows.map(([id, data]) => ({ id, data: () => ({ ...data }), ref: makeDocRef(path, id) }));
       return {
         empty: rows.length === 0,
         size: rows.length,
-        docs: rows.map(([id, data]) => ({ id, data: () => ({ ...data }), ref: makeDocRef(path, id) })),
+        docs: docsArr,
+        forEach: (cb: (doc: any) => void) => { docsArr.forEach(cb); },
       };
     },
     async listDocuments() {
