@@ -10,6 +10,7 @@ export default {
     },
   },
   transform: {
-    "^.+\.[jt]s$": "ts-jest",
+    "^.+\.ts$": "ts-jest",
+    "^.+\.js$": "babel-jest",
   },
 };
