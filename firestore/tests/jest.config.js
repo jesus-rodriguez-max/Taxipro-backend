@@ -13,4 +13,7 @@ export default {
     "^.+\.ts$": "ts-jest",
     "^.+\.js$": "babel-jest",
   },
+  transformIgnorePatterns: [
+    "node_modules/(?!(@firebase/rules-unit-testing)/)",
+  ],
 };
