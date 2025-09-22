@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
 const test = require('firebase-functions-test')();
 admin.initializeApp();
 const db = admin.firestore();

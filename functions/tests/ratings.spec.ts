@@ -83,9 +83,7 @@ describe('submitRating Callable Function', () => {
     const data = { tripId, rating: 4 };
     const context = authenticatedContext(passengerId);
 
-    await expect(submitRating(data, context)).rejects.toThrow(
-      'Cannot rate an uncompleted trip.'
-    );
+    await expect(wrappedSubmitRating(data, context)).rejects.toThrow(;
   });
 
   it('❌ Pasajero intenta calificar un trip que no es suyo → error', async () => {
