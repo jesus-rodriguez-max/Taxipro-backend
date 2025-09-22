@@ -28,7 +28,7 @@ import {
   updateTrustedContactsCallable,
   updateSafetyConsentsCallable,
 } from './safetyProfile';
-import { submitRating as submitRatingCallable } from './ratings/submitRating';
+import { submitRatingCallable } from './ratings/submitRating';
 import { cleanupSharedTrips } from './sharedTrips/cleanupSharedTrips';
 import { checkDisconnectedTrips } from './trips/checkDisconnectedTrips';
 
@@ -53,10 +53,10 @@ export { stripeWebhook };
 export const processMembershipPayments = processMembershipPaymentsFunction; // Añadido
 export const suspendOverdueMemberships = suspendOverdueMembershipsFunction; // Añadido
 
-// Safety-related callables
-export const startRecording = https.onCall(startRecordingCallable);
-export const stopRecording = https.onCall(stopRecordingCallable);
-export const logSafetyEvent = https.onCall(logSafetyEventCallable);
+// Safety-related callables (already wrapped in v2 onCall in safety.ts)
+export const startRecording = startRecordingCallable;
+export const stopRecording = stopRecordingCallable;
+export const logSafetyEvent = logSafetyEventCallable;
 
 // Share-related functions
 export const enableShare = enableShareCallable;
@@ -64,10 +64,8 @@ export const disableShare = disableShareCallable;
 export const getShareStatusFn = getShareStatus;
 export const updateShareLocationFn = updateShareLocation;
 
-// Stripe subscription for drivers
-export const createDriverSubscriptionSession = https.onCall(
-  createDriverSubscriptionSessionCallable,
-);
+// Stripe subscription for drivers (already onCall)
+export const createDriverSubscriptionSession = createDriverSubscriptionSessionCallable;
 
 // Safety profile functions
 export const updateTrustedContacts = https.onCall(updateTrustedContactsCallable);

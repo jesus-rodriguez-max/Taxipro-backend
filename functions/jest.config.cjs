@@ -11,10 +11,10 @@ module.exports = {
     },
   },
   transform: {
-    "^.+\.ts$": "ts-jest",
-    "^.+\.js$": "babel-jest",
+    "^.+\\.ts$": "ts-jest",
+    "^.+\\.js$": "babel-jest",
   },
   moduleNameMapper: {
-    '^(\.{1,2}/.*)\.js: '$1',
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
 };

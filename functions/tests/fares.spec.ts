@@ -47,7 +47,7 @@ describe('Fare Calculation in requestTrip', () => {
   it('should use baseFareDay and calculate distance cost during daytime (app request)', async () => {
     // Mock Date para simular horario diurno (ej. 10 AM)
     const mockDate = new Date('2025-01-01T10:00:00Z');
-    jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
+    const dateSpy = jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
 
     const result = await wrapped(requestTripCallable)(defaultTripData, passengerContext as any);
 
@@ -56,25 +56,25 @@ describe('Fare Calculation in requestTrip', () => {
     expect(result.tripId).toBeDefined();
 
     // Restaurar Date original
-    (global.Date as jest.Mock).mockRestore();
+    dateSpy.mockRestore();
   });
 
   it('should use baseFareNight and calculate distance cost during nighttime (app request)', async () => {
     // Mock Date para simular horario nocturno (ej. 11 PM)
     const mockDate = new Date('2025-01-01T23:00:00Z');
-    jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
+    const dateSpy = jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
 
     const result = await wrapped(requestTripCallable)(defaultTripData, passengerContext as any);
 
     const expectedFare = mockTariffs.baseFareNight + (defaultTripData.estimatedDistanceKm * mockTariffs.perKm);
     expect(result.totalFare).toBeCloseTo(expectedFare);
 
-    (global.Date as jest.Mock).mockRestore();
+    dateSpy.mockRestore();
   });
 
   it('should use phoneBaseFareDay during daytime (phone request)', async () => {
     const mockDate = new Date('2025-01-01T10:00:00Z');
-    jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
+    const dateSpy = jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
 
     const phoneRequestData = { ...defaultTripData, isPhoneRequest: true };
     const result = await wrapped(requestTripCallable)(phoneRequestData, passengerContext as any);
@@ -82,12 +82,12 @@ describe('Fare Calculation in requestTrip', () => {
     const expectedFare = mockTariffs.phoneBaseFareDay + (defaultTripData.estimatedDistanceKm * mockTariffs.perKm);
     expect(result.totalFare).toBeCloseTo(expectedFare);
 
-    (global.Date as jest.Mock).mockRestore();
+    dateSpy.mockRestore();
   });
 
   it('should use phoneBaseFareNight during nighttime (phone request)', async () => {
     const mockDate = new Date('2025-01-01T23:00:00Z');
-    jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
+    const dateSpy = jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
 
     const phoneRequestData = { ...defaultTripData, isPhoneRequest: true };
     const result = await wrapped(requestTripCallable)(phoneRequestData, passengerContext as any);
@@ -95,7 +95,7 @@ describe('Fare Calculation in requestTrip', () => {
     const expectedFare = mockTariffs.phoneBaseFareNight + (defaultTripData.estimatedDistanceKm * mockTariffs.perKm);
     expect(result.totalFare).toBeCloseTo(expectedFare);
 
-    (global.Date as jest.Mock).mockRestore();
+    dateSpy.mockRestore();
   });
 
   it('should throw an error if no active tariffs are found', async () => {

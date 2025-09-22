@@ -1,6 +1,7 @@
 import { https } from 'firebase-functions';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { Trip, TripStatus } from '../lib/types.js';
+import { Trip, TripStatus, GeoPoint } from '../lib/types';
+
 import { log } from '../lib/logging.js';
 
 export const requestTripCallable = async (data: any, context: https.CallableContext) => {
@@ -9,6 +10,7 @@ export const requestTripCallable = async (data: any, context: https.CallableCont
   }
 
   const { origin, destination, estimatedDistanceKm, isPhoneRequest } = data;
+
   const passengerId = context.auth.uid;
 
   if (!origin || !destination || typeof estimatedDistanceKm !== 'number') {
@@ -27,6 +29,19 @@ export const requestTripCallable = async (data: any, context: https.CallableCont
   if (!activeTrips.empty) {
     throw new https.HttpsError('failed-precondition', 'An active trip already exists for this passenger.');
   }
+
+  // --- Normalizar origen/destino al tipo Trip ---
+  const normalize = (loc: any) => {
+    if (loc?.point && typeof loc.point.lat === 'number' && typeof loc.point.lng === 'number') {
+      return { point: loc.point as GeoPoint, address: loc.address ?? '' };
+    }
+    if (typeof loc?.lat === 'number' && typeof loc?.lng === 'number') {
+      return { point: { lat: loc.lat, lng: loc.lng } as GeoPoint, address: loc.address ?? '' };
+    }
+    throw new https.HttpsError('invalid-argument', 'Invalid origin/destination format.');
+  };
+  const normalizedOrigin = normalize(origin);
+  const normalizedDestination = normalize(destination);
 
   // --- Lógica de Cálculo de Tarifas ---
   const tariffsDoc = await firestore.collection('fares').doc('tariffs').get();
@@ -52,8 +67,8 @@ export const requestTripCallable = async (data: any, context: https.CallableCont
   const newTrip: Omit<Trip, 'id'> = {
     passengerId,
     status: TripStatus.PENDING,
-    origin,
-    destination,
+    origin: normalizedOrigin,
+    destination: normalizedDestination,
     estimatedDistanceKm,
     isPhoneRequest: isPhoneRequest || false,
     fare: {

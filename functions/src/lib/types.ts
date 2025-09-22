@@ -1,32 +1,13 @@
 import { FieldValue } from 'firebase-admin/firestore';
+import { TripStatus } from '../constants/tripStatus';
 
 export interface GeoPoint {
   lat: number;
   lng: number;
 }
 
-export enum TripStatus {
-  // Flujo estándar
-  PENDING = 'pending', // Esperando chofer
-  ASSIGNED = 'assigned', // Chofer aceptó, en camino
-  ARRIVED = 'arrived', // Chofer ha llegado al punto de encuentro
-  ACTIVE = 'active', // Viaje en curso
-  COMPLETED = 'completed', // Viaje finalizado exitosamente
-
-  // Flujo de cancelación
-  CANCELLED_BY_PASSENGER = 'cancelled_by_passenger', // Pasajero canceló antes de la llegada del chofer (gratis)
-  CANCELLED_BY_DRIVER = 'cancelled_by_driver', // Chofer canceló
-  CANCELLED_WITH_PENALTY = 'cancelled_with_penalty', // Pasajero canceló tarde, se aplicó penalización
-  NO_SHOW = 'no_show', // Pasajero no se presentó, se aplicó penalización
-
-  // Flujo de pagos
-  PAYMENT_FAILED = 'payment_failed', // El cobro de Stripe falló
-  REFUNDED = 'refunded', // El cobro de Stripe fue reembolsado
-
-  // Flujo de desconexión
-  DISCONNECTED = 'disconnected', // Viaje sin actualizaciones de ubicación
-  PENDING_REVIEW = 'pending_review', // Viaje requiere revisión manual por soporte
-}
+// Re-export for backwards compatibility where TripStatus was imported from lib/types
+export { TripStatus };
 
 export interface Stop {
   location: GeoPoint;
@@ -34,7 +15,7 @@ export interface Stop {
 }
 
 export interface Trip {
-  id: string;
+  id?: string;
   passengerId: string;
   driverId?: string;
   status: TripStatus;
@@ -46,22 +27,27 @@ export interface Trip {
     point: GeoPoint;
     address: string;
   };
+  estimatedDistanceKm?: number;
+  isPhoneRequest?: boolean;
   stops?: Stop[]; // Para paradas adicionales
   distance?: {
-    planned: number; // en metros
-    travelled: number; // en metros
+    planned?: number; // en metros
+    travelled?: number; // en metros
   };
   time?: {
-    planned: number; // en segundos
-    travelled: number; // en segundos
+    planned?: number; // en segundos
+    travelled?: number; // en segundos
   };
   fare?: {
-    base: number;
-    perKm: number;
-    perMin: number;
-    stops: number; // Costo total de paradas extra
-    penalty: number; // Costo de penalización por cancelación o no-show
-    total: number;
+    base?: number;
+    perKm?: number;
+    perMin?: number;
+    stops?: number; // Costo total de paradas extra
+    penalty?: number; // Costo de penalización por cancelación o no-show
+    surcharges?: number; // Sobrecargos
+    distanceCost?: number; // Costo por distancia estimada
+    total?: number;
+    currency?: string;
   };
   payment: {
     method: 'stripe' | 'cash' | 'pending_balance';

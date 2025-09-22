@@ -2,10 +2,9 @@ import * as admin from 'firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { updateTripStatusCallable } from '../src/trips/updateTripStatus';
 import { cleanupSharedTrips } from '../src/sharedTrips/cleanupSharedTrips';
-import { TripStatus } from '../src/lib/types';
+import { TripStatus } from '../src/constants/tripStatus';
+import { resetMockFirestore } from './mocks/firebase';
 
-// Initialize the Firebase Test SDK
-const test = require('firebase-functions-test')();
 admin.initializeApp();
 const db = admin.firestore();
 
@@ -48,10 +47,8 @@ const createTrip = async (tripId: string, passengerId: string, driverId: string,
 
 describe('Shared Trips Functionality', () => {
   afterEach(async () => {
-    // Clean up Firestore after each test
-    await test.cleanup();
-    await db.collection('shared_trips').listDocuments().then(docs => Promise.all(docs.map(doc => doc.delete())));
-    await db.collection('trips').listDocuments().then(docs => Promise.all(docs.map(doc => doc.delete())));
+    // Clean up in-memory Firestore after each test
+    resetMockFirestore();
   });
 
   // Test for Firestore Rules (conceptual, as full rules testing requires @firebase/rules-unit-testing)
@@ -109,7 +106,7 @@ describe('Shared Trips Functionality', () => {
     await createSharedTrip(shareTokenActive, tripId, true, Timestamp.now());
 
     // Run the cleanup function
-    await cleanupSharedTrips(test.pubsub.makeContext());
+    await cleanupSharedTrips({} as any);
 
     // Verify deletion
     const expiredDoc = await db.collection('shared_trips').doc(shareTokenExpired).get();

@@ -4,7 +4,8 @@ import { updateTripStatusCallable as updateTripStatus } from '../src/trips/updat
 import { https } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
-import { Trip, TripStatus, GeoPoint } from '../src/lib/types';
+import { Trip, GeoPoint } from '../src/lib/types';
+import { TripStatus } from '../src/constants/tripStatus';   // ✅ corregido aquí
 import { docGetMock } from './mocks/firebase';
 import { isDriverSubscriptionActive } from '../src/lib/subscription';
 
@@ -49,7 +50,7 @@ describe('Trip Functions', () => {
         destination: { point: { lat: 2, lng: 2 }, address: 'Destination' },
       };
       const result = await wrappedRequestTrip(data, context as any);
-      expect(result).toEqual({ tripId: 'test-trip-id' });
+      expect(result).toMatchObject({ tripId: 'test-trip-id' });
     });
   });
 

@@ -8,5 +8,9 @@ export default {
     },
   },
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
-  testMatch: ['**/tests/**/*.spec.ts']
+  testMatch: ['**/tests/**/*.spec.ts'],
+  setupFilesAfterEnv: ['<rootDir>/functions/tests/jest.setup.ts'],
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
 };

@@ -1,4 +1,4 @@
-import { mockFirestore, mockApp, mockFieldValue } from './mocks/firebase';
+import { mockFirestore, mockApp, mockFieldValue, Timestamp } from './mocks/firebase';
 import * as functions from 'firebase-functions';
 
 // Mock de firebase-functions para incluir la configuración de Stripe
@@ -18,7 +18,8 @@ jest.mock('firebase-functions', () => {
 // Mock de firebase-admin
 jest.mock('firebase-admin', () => ({
   initializeApp: jest.fn(() => mockApp),
-  firestore: Object.assign(mockFirestore, { FieldValue: mockFieldValue }), // Asigna FieldValue al mock
+  // Exponer FieldValue y Timestamp en admin.firestore y permitir admin.firestore()
+  firestore: Object.assign(mockFirestore, { FieldValue: mockFieldValue, Timestamp }),
   getFirestore: mockFirestore,
 }));
 

@@ -107,7 +107,14 @@ async function handleStatusChange(tripId: string, trip: Trip, newStatus: TripSta
     if (newStatus === TripStatus.COMPLETED) {
       // Cálculo de tarifa final
       const finalTripState = { ...trip, ...update }; // Simula el estado final para el cálculo
-      const travelledSeconds = (finalTripState.completedAt.toMillis() - finalTripState.startedAt.toMillis()) / 1000;
+      const getMillis = (v: any): number => {
+        if (!v) return Date.now();
+        if (typeof v.toMillis === 'function') return v.toMillis();
+        if (v instanceof Date) return v.getTime();
+        if (typeof v.toDate === 'function') return v.toDate().getTime();
+        return Date.now();
+      };
+      const travelledSeconds = (getMillis(finalTripState.completedAt) - getMillis(finalTripState.startedAt)) / 1000;
       const distanceKm = (finalTripState.distance?.travelled || 0) / 1000;
 
       const timeFare = travelledSeconds * (COST_PER_MIN_CENTS / 60);
