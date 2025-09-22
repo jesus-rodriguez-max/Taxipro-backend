@@ -5,6 +5,14 @@ import { stripe as stripeService } from '../src/stripe/service';
 import * as admin from 'firebase-admin';
 import { TripStatus } from '../src/lib/types';
 
+jest.mock('firebase-functions', () => ({
+  config: jest.fn(() => ({
+    stripe: {
+      secret: 'sk_test_mock_secret',
+    },
+  })),
+}));
+
 // Mock Firebase Admin
 jest.mock('firebase-admin', () => {
   const mockUpdate = jest.fn();
