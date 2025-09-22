@@ -12,15 +12,23 @@ let testEnv: RulesTestEnvironment;
 
 beforeAll(async () => {
   const rules = readFileSync(join(__dirname, '../../firestore.rules'), 'utf8');
-  testEnv = await initializeTestEnvironment({ projectId: 'taxipro-rules-test', firestore: { rules } });
+  const [host, portStr] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8180').split(':');
+  testEnv = await initializeTestEnvironment({
+    projectId: 'taxipro-rules-test',
+    firestore: { host, port: Number(portStr), rules },
+  });
 });
 
 afterAll(async () => {
-  await testEnv.cleanup();
+  if (testEnv) {
+    await testEnv.cleanup();
+  }
 });
 
 beforeEach(async () => {
-  await testEnv.clearFirestore();
+  if (testEnv) {
+    await testEnv.clearFirestore();
+  }
   // Seed admin user for tests that require admin roles
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), 'users/admin_user'), { role: 'admin' });

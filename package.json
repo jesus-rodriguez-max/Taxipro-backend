@@ -7,7 +7,7 @@
     "lint": "eslint .",
     "test:functions": "npm --prefix functions test",
     "test": "npm run test:functions",
-    "test:rules": "jest firestore/tests --runInBand",
+    "test:rules": "jest -c firestore/tests/jest.config.js --runInBand",
     "test:e2e:request-ride": "firebase emulators:exec --project taxipro-chofer --only auth,firestore,functions \"node tools/e2e_requestRide.js\""
   },
   "devDependencies": {

@@ -1,19 +1,18 @@
 export default {
-  preset: "ts-jest",
-  testEnvironment: "node",
-  roots: ["<rootDir>/"],
-  testMatch: ["**/*.test.(js|ts|mjs)"],
-  extensionsToTreatAsEsm: [".ts", ".js", ".mjs"],
+  preset: 'ts-jest/presets/default-esm',
+  testEnvironment: 'node',
+  roots: ['<rootDir>/'],
+  testMatch: ['**/*.spec.ts', '**/*.test.ts'],
+  extensionsToTreatAsEsm: ['.ts'],
   globals: {
     'ts-jest': {
-      tsconfig: '<rootDir>/tsconfig.json',
+      useESM: true,
     },
   },
   transform: {
-    "^.+\.ts$": "ts-jest",
-    "^.+\.[mj]s$": "babel-jest",
+    '^.+\\.ts$': 'ts-jest',
   },
   transformIgnorePatterns: [
-    "node_modules/(?!(@firebase/rules-unit-testing)/)",
+    'node_modules/(?!(@firebase/rules-unit-testing|firebase)/)',
   ],
 };
