@@ -28,6 +28,9 @@ import {
   updateTrustedContactsCallable,
   updateSafetyConsentsCallable,
 } from './safetyProfile';
+import { submitRating as submitRatingCallable } from './ratings/submitRating';
+import { cleanupSharedTrips } from './sharedTrips/cleanupSharedTrips';
+import { checkDisconnectedTrips } from './trips/checkDisconnectedTrips';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -69,3 +72,12 @@ export const createDriverSubscriptionSession = https.onCall(
 // Safety profile functions
 export const updateTrustedContacts = https.onCall(updateTrustedContactsCallable);
 export const updateSafetyConsents = https.onCall(updateSafetyConsentsCallable);
+
+// Ratings functions
+export const submitRating = https.onCall(submitRatingCallable);
+
+// Shared Trips functions
+export const cleanupSharedTripsScheduled = cleanupSharedTrips;
+
+// Disconnection handling functions
+export const checkDisconnectedTripsScheduled = checkDisconnectedTrips;

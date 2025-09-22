@@ -52,7 +52,7 @@ export const updateTripStatusCallable = async (data: UpdateTripData, context: an
 
   // 4. Cambio de Estado
   if (newStatus) {
-    await handleStatusChange(trip, newStatus, batch, tripRef);
+    await handleStatusChange(tripDoc.id, trip, newStatus, batch, tripRef);
     if (newStatus === TripStatus.COMPLETED) {
       response.message = 'Viaje completado. Calculando tarifa final.';
     }
@@ -89,33 +89,40 @@ function handleLocationUpdate(trip: Trip, loc: GeoPoint, batch: admin.firestore.
   });
 }
 
-async function handleStatusChange(trip: Trip, newStatus: TripStatus, batch: admin.firestore.WriteBatch, ref: admin.firestore.DocumentReference) {
+async function handleStatusChange(tripId: string, trip: Trip, newStatus: TripStatus, batch: admin.firestore.WriteBatch, ref: admin.firestore.DocumentReference) {
   // Aquí iría la validación de transición de estados (canTransition)
   const update: any = { status: newStatus, updatedAt: admin.firestore.FieldValue.serverTimestamp() };
 
   if (newStatus === TripStatus.ACTIVE && trip.status !== TripStatus.ACTIVE) {
     update.startedAt = admin.firestore.FieldValue.serverTimestamp();
-  } else if (newStatus === TripStatus.COMPLETED) {
-    update.completedAt = admin.firestore.FieldValue.serverTimestamp();
-    
-    // Cálculo de tarifa final
-    const finalTripState = { ...trip, ...update }; // Simula el estado final para el cálculo
-    const travelledSeconds = (finalTripState.completedAt.toMillis() - finalTripState.startedAt.toMillis()) / 1000;
-    const distanceKm = (finalTripState.distance?.travelled || 0) / 1000;
+  } else if (newStatus === TripStatus.COMPLETED || newStatus === TripStatus.CANCELLED) {
+    update.completedAt = admin.firestore.FieldValue.serverTimestamp(); // Use completedAt for both for simplicity, or add cancelledAt
 
-    const timeFare = travelledSeconds * (COST_PER_MIN_CENTS / 60);
-    const distanceFare = distanceKm * COST_PER_KM_CENTS;
-    const stopsFare = finalTripState.fare?.stops || 0;
-    const surcharges = finalTripState.fare?.surcharges || 0;
+    // Update shared trip to inactive
+    const sharedTripsQuery = await admin.firestore().collection('shared_trips').where('tripId', '==', tripId).get();
+    sharedTripsQuery.forEach(doc => {
+      batch.update(doc.ref, { active: false });
+    });
 
-    const total = BASE_FARE + timeFare + distanceFare + stopsFare + surcharges;
+    if (newStatus === TripStatus.COMPLETED) {
+      // Cálculo de tarifa final
+      const finalTripState = { ...trip, ...update }; // Simula el estado final para el cálculo
+      const travelledSeconds = (finalTripState.completedAt.toMillis() - finalTripState.startedAt.toMillis()) / 1000;
+      const distanceKm = (finalTripState.distance?.travelled || 0) / 1000;
 
-    update['fare.total'] = Math.round(total);
-    update['time.travelled'] = travelledSeconds;
+      const timeFare = travelledSeconds * (COST_PER_MIN_CENTS / 60);
+      const distanceFare = distanceKm * COST_PER_KM_CENTS;
+      const stopsFare = finalTripState.fare?.stops || 0;
+      const surcharges = finalTripState.fare?.surcharges || 0;
 
-    // Aquí se añadiría la lógica de cobro (Stripe o efectivo)
-    // y la gestión del saldo pendiente.
-  }
+      const total = BASE_FARE + timeFare + distanceFare + stopsFare + surcharges;
+
+      update['fare.total'] = Math.round(total);
+      update['time.travelled'] = travelledSeconds;
+
+      // Aquí se añadiría la lógica de cobro (Stripe o efectivo)
+      // y la gestión del saldo pendiente.
+    }
 
   batch.update(ref, update);
 }

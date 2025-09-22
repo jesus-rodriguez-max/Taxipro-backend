@@ -1,69 +1,77 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Funciones de Ayuda ---
-    function isAuth() { return request.auth != null; }
-    function isSelf(uid) { return isAuth() && request.auth.uid == uid; }
-    function getRole(uid) { return get(/databases/$(database)/documents/users/$(uid)).data.role; }
-    function isAdmin() { return isAuth() && getRole(request.auth.uid) == 'admin'; }
-    function isCompliance() { return isAuth() && getRole(request.auth.uid) == 'compliance'; }
-
-    // --- REGLA 2 & 8: Usuarios y Aceptación de Términos ---
+    // --- USERS ---
     match /users/{userId} {
-      allow read, update, delete: if isSelf(userId);
-      allow list, get: if isAdmin() || isCompliance();
-      allow create: if isSelf(userId) && 
-                      request.resource.data.acceptedTerms == true &&
-                      request.resource.data.acceptedPrivacy == true;
+      allow read, update: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null
+        && request.resource.data.acceptedTerms == true
+        && request.resource.data.acceptedPrivacy == true;
+      allow read: if hasAdminRole();
     }
 
-    // --- REGLA 9: Validación de Choferes ---
+    // --- DRIVERS ---
     match /drivers/{driverId} {
-      allow read: if isSelf(driverId) || isAdmin() || isCompliance();
-      allow create: if isSelf(driverId) && request.resource.data.status == 'pending';
-      allow update: if (isAdmin() || isCompliance()) && request.resource.data.status != resource.data.status;
-
-      match /documents/{docId} {
-        allow read: if isSelf(driverId) || isAdmin();
-        allow write: if isAdmin();
-      }
-    }
-
-    // --- REGLA 1: Viajes ---
-    match /trips/{tripId} {
-      function isPassenger() { return isAuth() && request.auth.uid == resource.data.passengerId; }
-      function isDriver() { return isAuth() && request.auth.uid == resource.data.driverId; }
+      allow create: if request.auth != null && request.auth.uid == driverId
+        && request.resource.data.status == 'pending';
+      allow read, update: if hasAdminRole() || hasComplianceRole();
       
-      allow get: if isPassenger() || isDriver();
-      allow create: if isAuth() && request.auth.uid == request.resource.data.passengerId && request.resource.data.status == 'pending';
-      allow update: if isAdmin() || isCompliance(); // Solo el backend puede cambiar estados
-
-      // --- REGLA 6: Logs (Subcolección) ---
-      match /logs/{logId} {
-        allow read: if isAuth();
-        allow write: if isAdmin();
+      match /documents/{docId} {
+        allow read: if request.auth != null && (request.auth.uid == driverId || hasAdminRole());
+        allow write: if hasAdminRole();
       }
     }
 
-    // --- REGLA 3: Perfiles de Seguridad ---
-    match /safety_profiles/{userId} {
-      allow read, write: if isSelf(userId);
+    // --- TRIPS ---
+    match /trips/{tripId} {
+      allow create: if request.auth != null
+        && request.resource.data.passengerId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow read: if request.auth != null
+        && (resource.data.passengerId == request.auth.uid || resource.data.driverId == request.auth.uid);
+      allow update: if hasAdminRole() || hasComplianceRole();
+      
+      match /logs/{logId} {
+        allow read: if request.auth != null;
+        allow write: if hasAdminRole();
+      }
     }
 
-    // --- REGLA 4: Viajes Compartidos ---
+    // --- SHARED TRIPS ---
     match /shared_trips/{shareToken} {
       allow read: if resource.data.isActive == true;
-      allow write: if isAdmin();
+      allow create, update, delete: if hasAdminRole();
     }
 
-    // --- REGLA 7: Tarifas ---
+    // --- SAFETY PROFILES ---
+    match /safety_profiles/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // --- FARES ---
     match /fares/tariffs {
-        allow read: if isAuth();
-        allow create: if isAdmin();
-        allow update: if isAdmin() && request.resource.data.active == false; // Solo admin puede desactivar
-        allow delete: if false; // No se permite borrar
+      allow read: if request.auth != null;
+      allow write: if hasAdminRole();
+    }
+
+    // --- RATINGS ---
+    match /ratings/{ratingId} {
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null
+        && (resource.data.userId == request.auth.uid || hasAdminRole());
+      allow update, delete: if false; // ratings son inmutables
+    }
+  }
+}
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Trip audio
+    match /trip_audio/{tripId}/{userId}/{chunkId} {
+      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if hasAdminRole() || hasComplianceRole();
     }
   }
 }
