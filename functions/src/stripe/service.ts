@@ -1,7 +1,16 @@
 import Stripe from 'stripe';
 import * as functions from 'firebase-functions';
-import * as admin from 'firebase-admin';
+import *s admin from 'firebase-admin';
 import { TripStatus } from '../lib/types';
+
+// Mock functions.config() for testing purposes if not already mocked globally
+if (process.env.NODE_ENV === 'test') {
+  functions.config = jest.fn(() => ({
+    stripe: {
+      secret: 'sk_test_mock_secret',
+    },
+  }));
+}
 
 // Inicializa el cliente de Stripe con la clave secreta obtenida de forma segura
 // desde la configuración de entorno de Firebase.
