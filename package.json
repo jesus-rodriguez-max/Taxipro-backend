@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsc",
     "lint": "eslint .",
-    "test": "set \"NODE_ENV=test\" && jest --runInBand",
+    "test": "jest --runInBand --verbose",
     "test:rules": "jest firestore/tests --runInBand",
     "test:e2e:request-ride": "firebase emulators:exec --project taxipro-chofer --only auth,firestore,functions \"node tools/e2e_requestRide.js\""
   },

@@ -25,4 +25,6 @@ jobs:
         run: npm test
 
       - name: Run Firestore rules tests
-        run: npm run test:rules
+        run: |
+          cd $GITHUB_WORKSPACE
+          firebase emulators:exec --only firestore "npm run test:rules"
