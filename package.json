@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsc",
     "lint": "eslint .",
-    "test": "set \"FIREBASE_PROJECT_ID=taxipro-chofer\" && firebase emulators:exec --only firestore \"jest --runInBand\"",
+    "test": "set \"FIREBASE_PROJECT_ID=taxipro-chofer\" && firebase emulators:exec --only firestore --import=./ --export-on-exit -- \"jest --runInBand\"",
     "test:rules": "jest firestore/tests --runInBand",
     "test:e2e:request-ride": "firebase emulators:exec --project taxipro-chofer --only auth,firestore,functions \"node tools/e2e_requestRide.js\""
   },
