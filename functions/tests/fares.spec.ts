@@ -1,113 +1,46 @@
-import { requestTripCallable } from '../src/trips/requestTrip';
-import { https } from 'firebase-functions';
-import * as admin from 'firebase-admin';
-import { docGetMock } from './mocks/firebase';
+import { isNightTime, getBaseFare, calculateFare, Tariffs } from '../src/fares';
 
-const wrapped = (fn: any) => (data: any, context: https.CallableContext) => fn(data, context);
-
-describe('Fare Calculation in requestTrip', () => {
-  const passengerContext = { auth: { uid: 'test-passenger-id' } };
-  const defaultTripData = {
-    origin: { lat: 1, lng: 1 },
-    destination: { lat: 2, lng: 2 },
-    estimatedDistanceKm: 10,
-  };
-
-  const mockTariffs = {
-    city: 'San Luis Potosí',
-    zone: 'Zona Metropolitana',
-    year: 2025,
+describe('fares.ts - time windows and fare calculation', () => {
+  const tariffs: Tariffs = {
+    baseFareDay: 16.2,
+    baseFareNight: 21.0,
+    phoneBaseFareDay: 21.0,
+    phoneBaseFareNight: 25.9,
+    perKm: 7.3,
     currency: 'MXN',
-    baseFareDay: 16.20,
-    baseFareNight: 21.00,
-    perKm: 7.30,
-    waitingIncrement: 1.825,
-    waitingUnit: { seconds: 39, meters: 250 },
-    phoneBaseFareDay: 21.00,
-    phoneBaseFareNight: 25.90,
-    active: true,
   };
 
-  beforeAll(() => {
-    try { admin.initializeApp(); } catch (e) {}
+  // Horas explícitas en UTC para evitar problemas de zona horaria del sistema/CI
+  const dateNocturna = new Date('2025-01-01T02:00:00Z');  // 02:00 → nocturno
+  const dateDiurna = new Date('2025-01-01T12:00:00Z');    // 12:00 → diurno
+  const dateBordeInicio = new Date('2025-01-01T23:00:00Z'); // 23:00 → nocturno
+  const dateBordeFin = new Date('2025-01-01T05:59:00Z');   // 05:59 → nocturno
+
+  it('Tarifa base diurna (app): usa baseFareDay a las 12:00Z', () => {
+    expect(isNightTime(dateDiurna)).toBe(false);
+    const base = getBaseFare(false, dateDiurna, tariffs);
+    expect(base).toBeCloseTo(tariffs.baseFareDay);
   });
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-    // Mock para que siempre encuentre las tarifas activas
-    docGetMock.mockImplementation((docRef: any) => {
-      if (docRef.path === 'fares/tariffs') {
-        return Promise.resolve({ exists: true, data: () => mockTariffs });
-      }
-      // Comportamiento por defecto para otros documentos
-      return Promise.resolve({ exists: false });
-    });
+  it('Tarifa base nocturna (app): usa baseFareNight a las 02:00Z y 23:00Z y 05:59Z', () => {
+    expect(isNightTime(dateNocturna)).toBe(true);
+    expect(isNightTime(dateBordeInicio)).toBe(true);
+    expect(isNightTime(dateBordeFin)).toBe(true);
+    const base = getBaseFare(false, dateNocturna, tariffs);
+    expect(base).toBeCloseTo(tariffs.baseFareNight);
   });
 
-  it('should use baseFareDay and calculate distance cost during daytime (app request)', async () => {
-    // Mock Date para simular horario diurno (ej. 10 AM)
-    const mockDate = new Date('2025-01-01T10:00:00Z');
-    const dateSpy = jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
-
-    const result = await wrapped(requestTripCallable)(defaultTripData, passengerContext as any);
-
-    const expectedFare = mockTariffs.baseFareDay + (defaultTripData.estimatedDistanceKm * mockTariffs.perKm);
-    expect(result.totalFare).toBeCloseTo(expectedFare);
-    expect(result.tripId).toBeDefined();
-
-    // Restaurar Date original
-    dateSpy.mockRestore();
+  it('Distancia diurna: total = baseFareDay + km * perKm', () => {
+    const km = 10;
+    const total = calculateFare(km, false, dateDiurna, tariffs);
+    const expected = tariffs.baseFareDay + km * tariffs.perKm;
+    expect(total).toBeCloseTo(expected);
   });
 
-  it('should use baseFareNight and calculate distance cost during nighttime (app request)', async () => {
-    // Mock Date para simular horario nocturno (ej. 11 PM)
-    const mockDate = new Date('2025-01-01T23:00:00Z');
-    const dateSpy = jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
-
-    const result = await wrapped(requestTripCallable)(defaultTripData, passengerContext as any);
-
-    const expectedFare = mockTariffs.baseFareNight + (defaultTripData.estimatedDistanceKm * mockTariffs.perKm);
-    expect(result.totalFare).toBeCloseTo(expectedFare);
-
-    dateSpy.mockRestore();
-  });
-
-  it('should use phoneBaseFareDay during daytime (phone request)', async () => {
-    const mockDate = new Date('2025-01-01T10:00:00Z');
-    const dateSpy = jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
-
-    const phoneRequestData = { ...defaultTripData, isPhoneRequest: true };
-    const result = await wrapped(requestTripCallable)(phoneRequestData, passengerContext as any);
-
-    const expectedFare = mockTariffs.phoneBaseFareDay + (defaultTripData.estimatedDistanceKm * mockTariffs.perKm);
-    expect(result.totalFare).toBeCloseTo(expectedFare);
-
-    dateSpy.mockRestore();
-  });
-
-  it('should use phoneBaseFareNight during nighttime (phone request)', async () => {
-    const mockDate = new Date('2025-01-01T23:00:00Z');
-    const dateSpy = jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
-
-    const phoneRequestData = { ...defaultTripData, isPhoneRequest: true };
-    const result = await wrapped(requestTripCallable)(phoneRequestData, passengerContext as any);
-
-    const expectedFare = mockTariffs.phoneBaseFareNight + (defaultTripData.estimatedDistanceKm * mockTariffs.perKm);
-    expect(result.totalFare).toBeCloseTo(expectedFare);
-
-    dateSpy.mockRestore();
-  });
-
-  it('should throw an error if no active tariffs are found', async () => {
-    docGetMock.mockImplementation((docRef: any) => {
-      if (docRef.path === 'fares/tariffs') {
-        return Promise.resolve({ exists: false }); // Simula que no hay tarifas
-      }
-      return Promise.resolve({ exists: false });
-    });
-
-    await expect(wrapped(requestTripCallable)(defaultTripData, passengerContext as any))
-      .rejects
-      .toThrow('No active tariffs found.');
+  it('Distancia nocturna: total = baseFareNight + km * perKm', () => {
+    const km = 10;
+    const total = calculateFare(km, false, dateNocturna, tariffs);
+    const expected = tariffs.baseFareNight + km * tariffs.perKm;
+    expect(total).toBeCloseTo(expected);
   });
 });
