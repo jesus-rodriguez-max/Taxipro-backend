@@ -1,7 +1,8 @@
 import { initializeTestEnvironment, assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
 import { readFileSync } from "fs";
+import { join } from "path";
 
-const rules = readFileSync(new URL("../rules/firestore.rules", import.meta.url), "utf8");
+const rules = readFileSync(join(__dirname, "../rules/firestore.rules"), "utf8");
 
 describe("Rules - trips", () => {
   let env;

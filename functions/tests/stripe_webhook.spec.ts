@@ -6,40 +6,42 @@ import * as admin from 'firebase-admin';
 import { TripStatus } from '../src/lib/types';
 
 // Mock Firebase Admin
-const mockUpdate = jest.fn();
-const mockDoc = jest.fn(() => ({
-  get: jest.fn(() => ({
-    exists: true,
-    ref: { update: mockUpdate },
-  })),
-  update: mockUpdate,
-}));
-const mockWhere = jest.fn(() => ({
-  limit: jest.fn(() => ({
+jest.mock('firebase-admin', () => {
+  const mockUpdate = jest.fn();
+  const mockDoc = jest.fn(() => ({
     get: jest.fn(() => ({
-      empty: false,
-      docs: [{ ref: { update: mockUpdate } }],
+      exists: true,
+      ref: { update: mockUpdate },
     })),
-  })),
-}));
-const mockCollection = jest.fn(() => ({
-  doc: mockDoc,
-  where: mockWhere,
-}));
+    update: mockUpdate,
+  }));
+  const mockWhere = jest.fn(() => ({
+    limit: jest.fn(() => ({
+      get: jest.fn(() => ({
+        empty: false,
+        docs: [{ ref: { update: mockUpdate } }],
+      })),
+    })),
+  }));
+  const mockCollection = jest.fn(() => ({
+    doc: mockDoc,
+    where: mockWhere,
+  }));
 
-jest.mock('firebase-admin', () => ({
-  initializeApp: jest.fn(),
-  firestore: jest.fn(() => ({
-    collection: mockCollection,
-  })),
-  // Mock FieldValue for serverTimestamp
-  firestore: {
-    FieldValue: {
-      serverTimestamp: jest.fn(() => 'MOCKED_SERVER_TIMESTAMP'),
+  return {
+    initializeApp: jest.fn(),
+    firestore: jest.fn(() => ({
+      collection: mockCollection,
+    })),
+    // Mock FieldValue for serverTimestamp
+    firestore: {
+      FieldValue: {
+        serverTimestamp: jest.fn(() => 'MOCKED_SERVER_TIMESTAMP'),
+      },
+      collection: mockCollection,
     },
-    collection: mockCollection,
-  },
-}));
+  };
+});
 
 describe('Stripe Webhook', () => {
   beforeEach(() => {

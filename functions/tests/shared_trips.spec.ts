@@ -1,12 +1,11 @@
 import * as admin from 'firebase-admin';
-import * as functions from 'firebase-functions-test';
 import { Timestamp } from 'firebase-admin/firestore';
 import { updateTripStatusCallable } from '../src/trips/updateTripStatus';
 import { cleanupSharedTrips } from '../src/sharedTrips/cleanupSharedTrips';
 import { TripStatus } from '../src/lib/types';
 
 // Initialize the Firebase Test SDK
-const test = functions();
+const test = require('firebase-functions-test')();
 admin.initializeApp();
 const db = admin.firestore();
 

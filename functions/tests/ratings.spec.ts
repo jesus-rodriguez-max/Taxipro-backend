@@ -5,7 +5,7 @@ import { submitRating } from '../src/ratings/submitRating';
 import { Timestamp } from 'firebase-admin/firestore';
 
 // Initialize the Firebase Test SDK
-const test = functions();
+const test = require('firebase-functions-test')();
 admin.initializeApp();
 const db = admin.firestore();
 
