@@ -4,11 +4,6 @@ export default {
   roots: ["<rootDir>/"],
   testMatch: ["**/*.test.(js|ts)"],
   transform: {
-    "^.+\.ts$": "ts-jest",
-    "^.+\.js$": "babel-jest",
-  },
-  moduleNameMapper: {
-    '^(\.{1,2}/.*)\.js
-: '$1',
+    "^.+\.[jt]s$": "ts-jest",
   },
 };
