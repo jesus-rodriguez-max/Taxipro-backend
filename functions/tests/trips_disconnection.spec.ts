@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
+import { TripStatus } from '../src/lib/types';
 const test = require('firebase-functions-test')();
 admin.initializeApp();
 const db = admin.firestore();
