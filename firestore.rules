@@ -1,6 +1,17 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Helper functions for roles
+    function hasAdminRole() {
+      return request.auth != null && (
+        request.auth.token.admin == true || request.auth.token.role == 'admin'
+      );
+    }
+    function hasComplianceRole() {
+      return request.auth != null && (
+        request.auth.token.compliance == true || request.auth.token.role == 'compliance'
+      );
+    }
 
     // --- USERS ---
     match /users/{userId} {
@@ -67,6 +78,18 @@ service cloud.firestore {
 }
 
 service firebase.storage {
+  // Helper functions for roles (storage service)
+  function hasAdminRole() {
+    return request.auth != null && (
+      request.auth.token.admin == true || request.auth.token.role == 'admin'
+    );
+  }
+  function hasComplianceRole() {
+    return request.auth != null && (
+      request.auth.token.compliance == true || request.auth.token.role == 'compliance'
+    );
+  }
+
   match /b/{bucket}/o {
     // Trip audio
     match /trip_audio/{tripId}/{userId}/{chunkId} {
