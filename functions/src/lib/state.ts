@@ -1,11 +1,19 @@
-import { TripStatus } from './types';
+import { TripStatus } from '../constants/tripStatus';
 
-const validTransitions: { [key in TripStatus]?: TripStatus[] } = {
+const validTransitions: Record<TripStatus, TripStatus[]> = {
   [TripStatus.PENDING]: [TripStatus.ASSIGNED],
-  [TripStatus.ASSIGNED]: [TripStatus.ACTIVE],
-  [TripStatus.ACTIVE]: [TripStatus.COMPLETED],
+  [TripStatus.ASSIGNED]: [TripStatus.ACTIVE, TripStatus.CANCELLED],
+  [TripStatus.ACTIVE]: [TripStatus.COMPLETED, TripStatus.CANCELLED],
+  [TripStatus.COMPLETED]: [],
+  [TripStatus.CANCELLED]: [],
+  [TripStatus.DISCONNECTED]: [TripStatus.PENDING_REVIEW],
+  [TripStatus.PENDING_REVIEW]: [],
 };
 
-export function canTransition(from: TripStatus, to: TripStatus): boolean {
-  return validTransitions[from]?.includes(to) || false;
+export function canTransition(current: TripStatus, next: TripStatus): boolean {
+  return validTransitions[current]?.includes(next) ?? false;
+}
+
+export function getNextStatuses(current: TripStatus): TripStatus[] {
+  return validTransitions[current] || [];
 }
