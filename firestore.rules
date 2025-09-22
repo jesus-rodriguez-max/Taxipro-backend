@@ -61,7 +61,9 @@ service cloud.firestore {
     // --- REGLA 7: Tarifas ---
     match /fares/tariffs {
         allow read: if isAuth();
-        allow write: if isAdmin();
+        allow create: if isAdmin();
+        allow update: if isAdmin() && request.resource.data.active == false; // Solo admin puede desactivar
+        allow delete: if false; // No se permite borrar
     }
   }
 }
