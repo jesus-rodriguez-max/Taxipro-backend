@@ -9,7 +9,6 @@
     "start": "npm run build && firebase emulators:start --import=../seed --export-on-exit",
     "test": "jest --runInBand",
     "lint": "eslint .",
-    "test:rules": "jest firestore/tests --runInBand",
     "deploy:functions": "firebase deploy --only functions"
   },
   "dependencies": {
