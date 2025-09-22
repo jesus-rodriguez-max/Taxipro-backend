@@ -8,5 +8,5 @@ module.exports = {
   transform: {
     "^.+\.ts$": "ts-jest",
   },
-  // moduleNameMapper: {
-  //   '^(\.{1,2}/.*)\.js
+  moduleNameMapper: {
+    '^(\.{1,2}/.*)\.js
