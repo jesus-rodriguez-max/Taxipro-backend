@@ -24,11 +24,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Install dependencies
+      - name: Install deps (root)
         run: npm ci
 
-      - name: Install functions dependencies
-        run: npm ci --prefix functions
+      - name: Install deps (functions)
+        working-directory: functions
+        run: npm ci
 
       - name: Run unit tests
         run: npm test
