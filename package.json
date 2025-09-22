@@ -6,7 +6,7 @@
     "build": "tsc",
     "lint": "eslint .",
     "test": "jest --runInBand",
-    "test:rules": "jest firestore/tests --runInBand",
+    "test:rules": "firebase emulators:exec --project taxipro-chofer --only firestore \"jest firestore/tests --runInBand\"",
     "test:e2e:request-ride": "firebase emulators:exec --project taxipro-chofer --only auth,firestore,functions \"node tools/e2e_requestRide.js\""
   },
   "devDependencies": {
