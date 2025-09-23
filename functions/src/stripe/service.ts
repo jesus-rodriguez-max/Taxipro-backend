@@ -107,7 +107,7 @@ export const handleStripeWebhook = async (event: Stripe.Event) => {
       if (!customerId) break;
       await updateDriverByField('stripeCustomerId', customerId, {
         subscriptionActive: false,
-        subscriptionId: admin.firestore.FieldValue.delete?.() || null,
+        subscriptionId: null,
         subscriptionExpiration: new Date(0),
         membership: { status: DriverMembershipStatus.UNPAID },
       });

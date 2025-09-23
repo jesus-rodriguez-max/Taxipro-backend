@@ -1,0 +1,323 @@
+ts-jest[ts-jest-transformer] (WARN) Define `ts-jest` config under `globals` is deprecated. Please do
+transform: {
+    <transform_regex>: ['ts-jest', { /* ts-jest config goes here in Jest */ }],
+},
+See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/presets#advanced
+  console.log
+    Firebase Admin SDK and Functions Config have been mocked for tests.
+
+      at Object.<anonymous> (tests/jest.setup.ts:26:9)
+
+FAIL tests/shared_trips.spec.ts
+  Shared Trips Functionality
+    √ ✅ Confirmar que un usuario solo accede a trips activos (via reglas de Firestore) (3 ms)
+    × ✅ Confirmar que al finalizar un viaje, el shared trip cambia a active = false (1 ms)
+    × ✅ Confirmar que la función programada elimina o limpia los enlaces expirados (1 ms)
+
+  ● Shared Trips Functionality › ✅ Confirmar que al finalizar un viaje, el shared trip cambia a active = false
+
+    TypeError: sharedTripsQuery.forEach is not a function
+
+    [0m [90m 101 |[39m     [90m// Update shared trip to inactive[39m
+     [90m 102 |[39m     [36mconst[39m sharedTripsQuery [33m=[39m [36mawait[39m admin[33m.[39mfirestore()[33m.[39mcollection([32m'shared_trips'[39m)[33m.[39mwhere([32m'tripId'[39m[33m,[39m [32m'=='[39m[33m,[39m tripId)[33m.[39m[36mget[39m()[33m;[39m
+    [31m[1m>[22m[39m[90m 103 |[39m     sharedTripsQuery[33m.[39mforEach(doc [33m=>[39m {
+     [90m     |[39m                      [31m[1m^[22m[39m
+     [90m 104 |[39m       batch[33m.[39mupdate(doc[33m.[39mref[33m,[39m { active[33m:[39m [36mfalse[39m })[33m;[39m
+     [90m 105 |[39m     })[33m;[39m
+     [90m 106 |[39m[0m
+
+      at handleStatusChange (src/trips/updateTripStatus.ts:103:22)
+      at updateTripStatusCallable (src/trips/updateTripStatus.ts:55:5)
+      at Object.<anonymous> (tests/shared_trips.spec.ts:84:5)
+
+  ● Shared Trips Functionality › ✅ Confirmar que la función programada elimina o limpia los enlaces expirados
+
+    process.env.GCLOUD_PROJECT is not set.
+
+    [0m [90m 107 |[39m
+     [90m 108 |[39m     [90m// Run the cleanup function[39m
+    [31m[1m>[22m[39m[90m 109 |[39m     [36mawait[39m cleanupSharedTrips({} [36mas[39m any)[33m;[39m
+     [90m     |[39m                             [31m[1m^[22m[39m
+     [90m 110 |[39m
+     [90m 111 |[39m     [90m// Verify deletion[39m
+     [90m 112 |[39m     [36mconst[39m expiredDoc [33m=[39m [36mawait[39m db[33m.[39mcollection([32m'shared_trips'[39m)[33m.[39mdoc(shareTokenExpired)[33m.[39m[36mget[39m()[33m;[39m[0m
+
+      at triggerResource (node_modules/firebase-functions/lib/v1/providers/pubsub.js:100:19)
+      at cloudFunction (node_modules/firebase-functions/lib/v1/cloud-functions.js:64:13)
+      at Object.<anonymous> (tests/shared_trips.spec.ts:109:29)
+
+  console.log
+    Firebase Admin SDK and Functions Config have been mocked for tests.
+
+      at Object.<anonymous> (tests/jest.setup.ts:26:9)
+
+FAIL tests/trips.spec.ts
+  Trip Functions
+    requestTrip
+      × should create a new trip (1 ms)
+    acceptTrip
+      √ should accept a trip successfully (1 ms)
+    updateTripStatus
+      √ should update trip status to active
+
+  ● Trip Functions › requestTrip › should create a new trip
+
+    Missing origin, destination, or estimatedDistanceKm.
+
+    [0m [90m 15 |[39m
+     [90m 16 |[39m   [36mif[39m ([33m![39morigin [33m||[39m [33m![39mdestination [33m||[39m [36mtypeof[39m estimatedDistanceKm [33m!==[39m [32m'number'[39m) {
+    [31m[1m>[22m[39m[90m 17 |[39m     [36mthrow[39m [36mnew[39m https[33m.[39m[33mHttpsError[39m([32m'invalid-argument'[39m[33m,[39m [32m'Missing origin, destination, or estimatedDistanceKm.'[39m)[33m;[39m
+     [90m    |[39m           [31m[1m^[22m[39m
+     [90m 18 |[39m   }
+     [90m 19 |[39m
+     [90m 20 |[39m   [36mconst[39m firestore [33m=[39m getFirestore()[33m;[39m[0m
+
+      at requestTripCallable (src/trips/requestTrip.ts:17:11)
+      at tests/trips.spec.ts:16:77
+      at Object.<anonymous> (tests/trips.spec.ts:52:28)
+
+  console.log
+    Firebase Admin SDK and Functions Config have been mocked for tests.
+
+      at Object.<anonymous> (tests/jest.setup.ts:26:9)
+
+FAIL tests/fares.spec.ts
+  Fare Calculation in requestTrip
+    × should use baseFareDay and calculate distance cost during daytime (app request) (3 ms)
+    √ should use baseFareNight and calculate distance cost during nighttime (app request)
+    × should use phoneBaseFareDay during daytime (phone request) (1 ms)
+    √ should use phoneBaseFareNight during nighttime (phone request)
+    √ should throw an error if no active tariffs are found (3 ms)
+
+  ● Fare Calculation in requestTrip › should use baseFareDay and calculate distance cost during daytime (app request)
+
+    expect(received).toBeCloseTo(expected)
+
+    Expected: 89.2
+    Received: 94
+
+    Expected precision:    2
+    Expected difference: < 0.005
+    Received difference:   4.799999999999997
+
+    [0m [90m 53 |[39m
+     [90m 54 |[39m     [36mconst[39m expectedFare [33m=[39m mockTariffs[33m.[39mbaseFareDay [33m+[39m (defaultTripData[33m.[39mestimatedDistanceKm [33m*[39m mockTariffs[33m.[39mperKm)[33m;[39m
+    [31m[1m>[22m[39m[90m 55 |[39m     expect(result[33m.[39mtotalFare)[33m.[39mtoBeCloseTo(expectedFare)[33m;[39m
+     [90m    |[39m                              [31m[1m^[22m[39m
+     [90m 56 |[39m     expect(result[33m.[39mtripId)[33m.[39mtoBeDefined()[33m;[39m
+     [90m 57 |[39m
+     [90m 58 |[39m     [90m// Restaurar Date original[39m[0m
+
+      at Object.<anonymous> (tests/fares.spec.ts:55:30)
+
+  ● Fare Calculation in requestTrip › should use phoneBaseFareDay during daytime (phone request)
+
+    expect(received).toBeCloseTo(expected)
+
+    Expected: 94
+    Received: 98.9
+
+    Expected precision:    2
+    Expected difference: < 0.005
+    Received difference:   4.900000000000006
+
+    [0m [90m 81 |[39m
+     [90m 82 |[39m     [36mconst[39m expectedFare [33m=[39m mockTariffs[33m.[39mphoneBaseFareDay [33m+[39m (defaultTripData[33m.[39mestimatedDistanceKm [33m*[39m mockTariffs[33m.[39mperKm)[33m;[39m
+    [31m[1m>[22m[39m[90m 83 |[39m     expect(result[33m.[39mtotalFare)[33m.[39mtoBeCloseTo(expectedFare)[33m;[39m
+     [90m    |[39m                              [31m[1m^[22m[39m
+     [90m 84 |[39m
+     [90m 85 |[39m     dateSpy[33m.[39mmockRestore()[33m;[39m
+     [90m 86 |[39m   })[33m;[39m[0m
+
+      at Object.<anonymous> (tests/fares.spec.ts:83:30)
+
+  console.log
+    Firebase Admin SDK and Functions Config have been mocked for tests.
+
+      at Object.<anonymous> (tests/jest.setup.ts:26:9)
+
+FAIL tests/trips_disconnection.spec.ts
+  Trip Disconnection Handling
+    × ✅ Simular un viaje activo sin updates y confirmar que se marca como disconnected (1 ms)
+    × ✅ Confirmar que luego pasa a pending_review
+    × ❌ No debe marcar un viaje activo como disconnected si ha sido actualizado recientemente
+    × ❌ No debe marcar un viaje disconnected como pending_review si no ha pasado el tiempo suficiente
+
+  ● Trip Disconnection Handling › ✅ Simular un viaje activo sin updates y confirmar que se marca como disconnected
+
+    process.env.GCLOUD_PROJECT is not set.
+
+    [0m [90m 33 |[39m     [36mawait[39m createTrip(tripId[33m,[39m [33mTripStatus[39m[33m.[39m[33mACTIVE[39m[33m,[39m fiveMinutesAgo)[33m;[39m
+     [90m 34 |[39m
+    [31m[1m>[22m[39m[90m 35 |[39m     [36mawait[39m checkDisconnectedTrips({} [36mas[39m any)[33m;[39m
+     [90m    |[39m                                 [31m[1m^[22m[39m
+     [90m 36 |[39m
+     [90m 37 |[39m     [36mconst[39m updatedTrip [33m=[39m [36mawait[39m db[33m.[39mcollection([32m'trips'[39m)[33m.[39mdoc(tripId)[33m.[39m[36mget[39m()[33m;[39m
+     [90m 38 |[39m     expect(updatedTrip[33m.[39mexists)[33m.[39mtoBe([36mtrue[39m)[33m;[39m[0m
+
+      at triggerResource (node_modules/firebase-functions/lib/v1/providers/pubsub.js:100:19)
+      at cloudFunction (node_modules/firebase-functions/lib/v1/cloud-functions.js:64:13)
+      at Object.<anonymous> (tests/trips_disconnection.spec.ts:35:33)
+
+  ● Trip Disconnection Handling › ✅ Confirmar que luego pasa a pending_review
+
+    process.env.GCLOUD_PROJECT is not set.
+
+    [0m [90m 46 |[39m     [36mawait[39m createTrip(tripId[33m,[39m [33mTripStatus[39m[33m.[39m[33mDISCONNECTED[39m[33m,[39m sixtyMinutesAgo)[33m;[39m
+     [90m 47 |[39m
+    [31m[1m>[22m[39m[90m 48 |[39m     [36mawait[39m checkDisconnectedTrips({} [36mas[39m any)[33m;[39m
+     [90m    |[39m                                 [31m[1m^[22m[39m
+     [90m 49 |[39m
+     [90m 50 |[39m     [36mconst[39m updatedTrip [33m=[39m [36mawait[39m db[33m.[39mcollection([32m'trips'[39m)[33m.[39mdoc(tripId)[33m.[39m[36mget[39m()[33m;[39m
+     [90m 51 |[39m     expect(updatedTrip[33m.[39mexists)[33m.[39mtoBe([36mtrue[39m)[33m;[39m[0m
+
+      at triggerResource (node_modules/firebase-functions/lib/v1/providers/pubsub.js:100:19)
+      at cloudFunction (node_modules/firebase-functions/lib/v1/cloud-functions.js:64:13)
+      at Object.<anonymous> (tests/trips_disconnection.spec.ts:48:33)
+
+  ● Trip Disconnection Handling › ❌ No debe marcar un viaje activo como disconnected si ha sido actualizado recientemente
+
+    process.env.GCLOUD_PROJECT is not set.
+
+    [0m [90m 59 |[39m     [36mawait[39m createTrip(tripId[33m,[39m [33mTripStatus[39m[33m.[39m[33mACTIVE[39m[33m,[39m oneMinuteAgo)[33m;[39m
+     [90m 60 |[39m
+    [31m[1m>[22m[39m[90m 61 |[39m     [36mawait[39m checkDisconnectedTrips({} [36mas[39m any)[33m;[39m
+     [90m    |[39m                                 [31m[1m^[22m[39m
+     [90m 62 |[39m
+     [90m 63 |[39m     [36mconst[39m updatedTrip [33m=[39m [36mawait[39m db[33m.[39mcollection([32m'trips'[39m)[33m.[39mdoc(tripId)[33m.[39m[36mget[39m()[33m;[39m
+     [90m 64 |[39m     expect(updatedTrip[33m.[39mexists)[33m.[39mtoBe([36mtrue[39m)[33m;[39m[0m
+
+      at triggerResource (node_modules/firebase-functions/lib/v1/providers/pubsub.js:100:19)
+      at cloudFunction (node_modules/firebase-functions/lib/v1/cloud-functions.js:64:13)
+      at Object.<anonymous> (tests/trips_disconnection.spec.ts:61:33)
+
+  ● Trip Disconnection Handling › ❌ No debe marcar un viaje disconnected como pending_review si no ha pasado el tiempo suficiente
+
+    process.env.GCLOUD_PROJECT is not set.
+
+    [0m [90m 71 |[39m     [36mawait[39m createTrip(tripId[33m,[39m [33mTripStatus[39m[33m.[39m[33mDISCONNECTED[39m[33m,[39m thirtyMinutesAgo)[33m;[39m
+     [90m 72 |[39m
+    [31m[1m>[22m[39m[90m 73 |[39m     [36mawait[39m checkDisconnectedTrips({} [36mas[39m any)[33m;[39m
+     [90m    |[39m                                 [31m[1m^[22m[39m
+     [90m 74 |[39m
+     [90m 75 |[39m     [36mconst[39m updatedTrip [33m=[39m [36mawait[39m db[33m.[39mcollection([32m'trips'[39m)[33m.[39mdoc(tripId)[33m.[39m[36mget[39m()[33m;[39m
+     [90m 76 |[39m     expect(updatedTrip[33m.[39mexists)[33m.[39mtoBe([36mtrue[39m)[33m;[39m[0m
+
+      at triggerResource (node_modules/firebase-functions/lib/v1/providers/pubsub.js:100:19)
+      at cloudFunction (node_modules/firebase-functions/lib/v1/cloud-functions.js:64:13)
+      at Object.<anonymous> (tests/trips_disconnection.spec.ts:73:33)
+
+  console.log
+    Firebase Admin SDK and Functions Config have been mocked for tests.
+
+      at Object.<anonymous> (tests/jest.setup.ts:26:9)
+
+  console.log
+    PaymentIntent successful: pi_test
+
+      at handleStripeWebhook (src/stripe/service.ts:46:15)
+
+  console.error
+    PaymentIntent failed: pi_failed_test
+
+    [0m [90m 51 |[39m     [36mcase[39m [32m'payment_intent.payment_failed'[39m[33m:[39m {
+     [90m 52 |[39m       [36mconst[39m paymentIntent [33m=[39m event[33m.[39mdata[33m.[39mobject [36mas[39m [33mStripe[39m[33m.[39m[33mPaymentIntent[39m[33m;[39m
+    [31m[1m>[22m[39m[90m 53 |[39m       console[33m.[39merror([32m'PaymentIntent failed:'[39m[33m,[39m paymentIntent[33m.[39mid)[33m;[39m
+     [90m    |[39m               [31m[1m^[22m[39m
+     [90m 54 |[39m       [90m// Mark the trip as payment_failed[39m
+     [90m 55 |[39m       [36mawait[39m updateTripStatusByPaymentIntent(paymentIntent[33m.[39mid[33m,[39m [33mTripStatus[39m[33m.[39m[33mPAYMENT_FAILED[39m)[33m;[39m
+     [90m 56 |[39m       [90m// Log notification (e.g., send email to admin or passenger)[39m[0m
+
+      at handleStripeWebhook (src/stripe/service.ts:53:15)
+      at src/stripe/webhook.ts:34:28
+      at node_modules/firebase-functions/lib/common/onInit.js:33:16
+      at node_modules/firebase-functions/lib/v2/trace.js:16:28
+      at cloudFunction (node_modules/firebase-functions/lib/v1/providers/https.js:53:78)
+      at Object.<anonymous> (tests/stripe_webhook.spec.ts:60:24)
+
+  console.info
+    {"severity":"INFO","message":"Trip trip_for_failed status updated to payment_failed for PaymentIntent pi_failed_test."}
+
+      at write (node_modules/firebase-functions/lib/logger/index.js:70:74)
+
+  console.warn
+    {"severity":"WARNING","message":"Payment failed for PaymentIntent pi_failed_test. Trip status updated to PAYMENT_FAILED."}
+
+    [0m [90m 55 |[39m       [36mawait[39m updateTripStatusByPaymentIntent(paymentIntent[33m.[39mid[33m,[39m [33mTripStatus[39m[33m.[39m[33mPAYMENT_FAILED[39m)[33m;[39m
+     [90m 56 |[39m       [90m// Log notification (e.g., send email to admin or passenger)[39m
+    [31m[1m>[22m[39m[90m 57 |[39m       functions[33m.[39mlogger[33m.[39mwarn([32m`Payment failed for PaymentIntent ${paymentIntent.id}. Trip status updated to PAYMENT_FAILED.`[39m)[33m;[39m
+     [90m    |[39m                        [31m[1m^[22m[39m
+     [90m 58 |[39m       [36mbreak[39m[33m;[39m
+     [90m 59 |[39m     }
+     [90m 60 |[39m     [36mcase[39m [32m'charge.refunded'[39m[33m:[39m {[0m
+
+      at write (node_modules/firebase-functions/lib/logger/index.js:70:74)
+      at Object.warn (node_modules/firebase-functions/lib/logger/index.js:110:5)
+      at handleStripeWebhook (src/stripe/service.ts:57:24)
+      at src/stripe/webhook.ts:34:3
+      at Object.<anonymous> (tests/stripe_webhook.spec.ts:60:5)
+
+  console.log
+    Charge refunded: ch_refunded_test
+
+      at handleStripeWebhook (src/stripe/service.ts:62:15)
+
+  console.info
+    {"severity":"INFO","message":"Trip trip_for_refund status updated to refunded for Charge ch_refunded_test."}
+
+      at write (node_modules/firebase-functions/lib/logger/index.js:70:74)
+
+  console.info
+    {"severity":"INFO","message":"Charge ch_refunded_test refunded. Trip status updated to REFUNDED."}
+
+      at write (node_modules/firebase-functions/lib/logger/index.js:70:74)
+
+PASS tests/stripe_webhook.spec.ts
+  Stripe Webhook
+    √ should handle a valid event (8 ms)
+    √ should handle an invalid signature
+    √ ✅ payment_failed → el viaje cambia a PAYMENT_FAILED (7 ms)
+    √ ✅ charge.refunded → el viaje cambia a REFUNDED (4 ms)
+
+  console.log
+    Firebase Admin SDK and Functions Config have been mocked for tests.
+
+      at Object.<anonymous> (tests/jest.setup.ts:26:9)
+
+PASS tests/ratings.spec.ts
+  submitRating Callable Function
+    √ ✅ Pasajero califica un viaje completado → éxito (2 ms)
+    √ ❌ Pasajero intenta calificar un viaje no completado → error (5 ms)
+    √ ❌ Pasajero intenta calificar un trip que no es suyo → error
+    √ ❌ Pasajero intenta calificar dos veces el mismo trip → error
+    √ ❌ Usuario no autenticado no puede crear ratings → error (2 ms)
+
+  console.log
+    Firebase Admin SDK and Functions Config have been mocked for tests.
+
+      at Object.<anonymous> (tests/jest.setup.ts:26:9)
+
+PASS tests/geo.spec.ts
+  Geo Library
+    √ should calculate the distance between two points correctly (1 ms)
+    √ should return true if a point is within the geofence
+    √ should return false if a point is outside the geofence (1 ms)
+
+  console.log
+    Firebase Admin SDK and Functions Config have been mocked for tests.
+
+      at Object.<anonymous> (tests/jest.setup.ts:26:9)
+
+FAIL tests/state.spec.ts
+  ● Test suite failed to run
+
+    [96msrc/lib/state.ts[0m:[93m3[0m:[93m7[0m - [91merror[0m[90m TS2740: [0mType '{ pending: TripStatus.ASSIGNED[]; assigned: (TripStatus.ACTIVE | TripStatus.CANCELLED)[]; active: (TripStatus.COMPLETED | TripStatus.CANCELLED)[]; completed: never[]; cancelled: never[]; disconnected: TripStatus.PENDING_REVIEW[]; pending_review: never[]; }' is missing the following properties from type 'Record<TripStatus, TripStatus[]>': arrived, cancelled_by_passenger, cancelled_by_driver, cancelled_with_penalty, and 3 more.
+
+    [7m3[0m const validTransitions: Record<TripStatus, TripStatus[]> = {
+    [7m [0m [91m      ~~~~~~~~~~~~~~~~[0m
+
+Test Suites: 5 failed, 3 passed, 8 total
+Tests:       9 failed, 18 passed, 27 total
+Snapshots:   0 total
+Time:        3.788 s
+Ran all test suites.

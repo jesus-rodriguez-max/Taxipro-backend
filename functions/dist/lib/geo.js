@@ -1,5 +1,9 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getDistanceInMeters = getDistanceInMeters;
+exports.isWithinGeofence = isWithinGeofence;
 // Haversine formula
-export function getDistanceInMeters(point1, point2) {
+function getDistanceInMeters(point1, point2) {
     const R = 6371e3; // metres
     const φ1 = point1.lat * Math.PI / 180; // φ, λ in radians
     const φ2 = point2.lat * Math.PI / 180;
@@ -11,7 +15,7 @@ export function getDistanceInMeters(point1, point2) {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // in metres
 }
-export function isWithinGeofence(currentLocation, targetLocation, radiusInMeters) {
+function isWithinGeofence(currentLocation, targetLocation, radiusInMeters) {
     if (!currentLocation) {
         return false;
     }

@@ -1,0 +1,8 @@
+{
+  "unit_amount": 14900,
+  "currency": "mxn",
+  "recurring": {
+    "interval": "week"
+  },
+  "product": "prod_T6ZsOtJLlYpKMf"
+}
