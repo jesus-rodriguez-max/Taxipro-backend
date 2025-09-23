@@ -1,8 +1,7 @@
 import Stripe from 'stripe';
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { TripStatus } from '../lib/types';
-
+import { TripStatus, DriverMembershipStatus } from '../lib/types';
 
 // Inicializa el cliente de Stripe con la clave secreta obtenida de forma segura
 // desde la configuración de entorno de Firebase.
@@ -40,7 +39,73 @@ export const createPaymentIntent = async (
  * @param {Stripe.Event} event - El evento de Stripe.
  */
 export const handleStripeWebhook = async (event: Stripe.Event) => {
+  const db = admin.firestore();
   switch (event.type) {
+    // Suscripción iniciada mediante Checkout
+    case 'checkout.session.completed': {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const driverId = (session.client_reference_id as string) || '';
+      if (!driverId) {
+        functions.logger.warn('checkout.session.completed without client_reference_id');
+        break;
+      }
+      const driverRef = db.collection('drivers').doc(driverId);
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      await driverRef.set({
+        stripeCustomerId: typeof session.customer === 'string' ? session.customer : undefined,
+        subscriptionId: typeof session.subscription === 'string' ? session.subscription : undefined,
+        subscriptionActive: true,
+        subscriptionExpiration: expiresAt,
+        membership: {
+          status: DriverMembershipStatus.ACTIVE,
+          lastPaymentAttempt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+      } as any, { merge: true });
+      functions.logger.info(`Driver ${driverId} subscription activated via Checkout.`);
+      break;
+    }
+
+    // Falla de cobro de suscripción
+    case 'invoice.payment_failed': {
+      const invoice = event.data.object as Stripe.Invoice;
+      const customerId = (invoice.customer as string) || '';
+      if (!customerId) break;
+      await updateDriverByField('stripeCustomerId', customerId, {
+        subscriptionActive: false,
+        membership: { status: DriverMembershipStatus.SUSPENDED, lastPaymentAttempt: admin.firestore.FieldValue.serverTimestamp() },
+      });
+      functions.logger.warn(`Invoice payment failed for customer ${customerId}. Driver suspended.`);
+      break;
+    }
+
+    // Cuenta Connect actualizada (KYC / habilitaciones)
+    case 'account.updated': {
+      const account = event.data.object as Stripe.Account;
+      const verified = !!account.charges_enabled && !!account.details_submitted;
+      await updateDriverByField('stripeAccountId', account.id, {
+        isApproved: verified,
+        kyc: { verified },
+      });
+      functions.logger.info(`Account ${account.id} updated. KYC verified=${verified}`);
+      break;
+    }
+
+    // Cancelación de suscripción
+    case 'customer.subscription.deleted': {
+      const sub = event.data.object as Stripe.Subscription;
+      const customerId = (sub.customer as string) || '';
+      if (!customerId) break;
+      await updateDriverByField('stripeCustomerId', customerId, {
+        subscriptionActive: false,
+        subscriptionId: admin.firestore.FieldValue.delete?.() || null,
+        subscriptionExpiration: new Date(0),
+        membership: { status: DriverMembershipStatus.UNPAID },
+      });
+      functions.logger.info(`Subscription deleted for customer ${customerId}. Driver set to UNPAID.`);
+      break;
+    }
+
+    // Eventos de pagos a viajes ya existentes
     case 'payment_intent.succeeded': {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       console.log('PaymentIntent successful:', paymentIntent.id);
@@ -66,8 +131,9 @@ export const handleStripeWebhook = async (event: Stripe.Event) => {
       functions.logger.info(`Charge ${charge.id} refunded. Trip status updated to REFUNDED.`);
       break;
     }
+
     default:
-      console.warn(`Unhandled event type: ${event.type}`);
+      functions.logger.warn(`Unhandled event type: ${event.type}`);
   }
 };
 
@@ -97,4 +163,17 @@ async function updateTripStatusByCharge(chargeId: string, status: TripStatus) {
   } else {
     functions.logger.warn(`No trip found for Charge ${chargeId} to update status to ${status}.`);
   }
+}
+
+// Helper to update a driver by a unique field (e.g., stripeCustomerId or stripeAccountId)
+async function updateDriverByField(field: 'stripeCustomerId' | 'stripeAccountId', value: string, updates: any) {
+  const db = admin.firestore();
+  const snap = await db.collection('drivers').where(field, '==', value).limit(1).get();
+  if (snap.empty) {
+    functions.logger.warn(`No driver found for ${field}=${value}`);
+    return;
+  }
+  const ref = snap.docs[0].ref;
+  // Merge nested membership updates preserving structure
+  await ref.set(updates, { merge: true });
 }

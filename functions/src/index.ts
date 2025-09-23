@@ -7,6 +7,9 @@ import { driverArrivedCallable } from './trips/driverArrived';
 import { cancelTripCallable } from './trips/cancelTrip';
 import { markAsNoShowCallable } from './trips/markAsNoShow';
 import { stripeWebhook } from './stripe/webhook';
+import { createDriverAccountCallable } from './stripe/createDriverAccount';
+import { subscribeDriverCallable } from './stripe/subscribeDriver';
+import { checkDriverSubscriptionCallable } from './stripe/checkDriverSubscription';
 import { updateDriverOnboardingCallable } from './driverOnboarding';
 import {
   processMembershipPayments as processMembershipPaymentsFunction,
@@ -48,6 +51,11 @@ export const markAsNoShow = https.onCall(markAsNoShowCallable);
 
 // Stripe webhook (HTTP request)
 export { stripeWebhook };
+
+// Stripe Connect endpoints (Express account onboarding and subscription)
+export const createDriverAccount = https.onCall(createDriverAccountCallable);
+export const subscribeDriver = https.onCall(subscribeDriverCallable);
+export const checkDriverSubscription = https.onCall(checkDriverSubscriptionCallable);
 
 // Scheduled functions
 export const processMembershipPayments = processMembershipPaymentsFunction; // Añadido

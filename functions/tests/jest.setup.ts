@@ -10,6 +10,9 @@ jest.mock('firebase-functions', () => {
       stripe: {
         secret: 'test_secret_key',
         webhook_secret: 'test_webhook_secret',
+        weekly_price_id: 'price_weekly_149mxn',
+        onboarding_refresh_url: 'https://example.com/refresh',
+        onboarding_return_url: 'https://example.com/return',
       },
     }),
   };
