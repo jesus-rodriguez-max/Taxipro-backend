@@ -18,7 +18,7 @@ describe('subscribeDriverCallable', () => {
   it('creates a Checkout session for weekly subscription', async () => {
     const driverId = 'driver_2';
     const driverRef = admin.firestore().collection('drivers').doc(driverId);
-    await driverRef.set({ id: driverId });
+    await driverRef.set({ id: driverId, billingConsent: true });
 
     const res = await subscribeDriverCallable(
       { successUrl: 'https://example.com/success', cancelUrl: 'https://example.com/cancel' },
@@ -31,5 +31,15 @@ describe('subscribeDriverCallable', () => {
     const after = await driverRef.get();
     // Customer is created and saved for later webhooks
     expect(after.data()?.stripeCustomerId).toBeDefined();
+  });
+
+  it('rejects when billingConsent is false', async () => {
+    const driverId = 'driver_no_consent';
+    const driverRef = admin.firestore().collection('drivers').doc(driverId);
+    await driverRef.set({ id: driverId, billingConsent: false });
+
+    await expect(
+      subscribeDriverCallable({ successUrl: 'https://example.com/s', cancelUrl: 'https://example.com/c' }, { auth: { uid: driverId } } as any)
+    ).rejects.toThrow();
   });
 });

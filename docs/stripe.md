@@ -9,13 +9,16 @@ Este documento describe el flujo técnico completo para integrar Stripe Connect 
 ## Resumen del flujo
 
 1) El conductor crea su cuenta de Stripe Connect (Express) mediante `createDriverAccount()` y completa su KYC desde el `accountLink`.
-2) El conductor inicia su suscripción semanal mediante `subscribeDriver()` (Checkout Session → Subscription).
+2) El conductor autoriza la facturación marcando `billingConsent = true` en su perfil (Firestore).
+3) El conductor inicia su suscripción semanal mediante `subscribeDriver()` (Checkout Session → Subscription).
 3) Webhooks de Stripe actualizan el estado del conductor:
    - `checkout.session.completed` → activa la suscripción.
    - `invoice.payment_failed` → suspende conductor.
    - `account.updated` → refleja estado de KYC.
    - `customer.subscription.deleted` → cancela/baja voluntaria.
 4) La app valida si el conductor puede recibir viajes llamando `checkDriverSubscription()` o en flujos críticos del backend con `isDriverSubscriptionActive()`.
+
+> Importante: La suscripción solo se paga con tarjeta guardada en Stripe. No hay opción de efectivo ni Oxxo.
 
 ---
 
@@ -88,7 +91,11 @@ Salida:
 Lógica:
 - Crea/reutiliza `stripeCustomerId`.
 - Crea una Checkout Session `mode: 'subscription'` con `price: stripe.weekly_price_id`.
+- Requiere consentimiento de cobro (`billingConsent: true`) antes de crear la sesión.
 - El cliente completa la suscripción en Stripe.
+
+Restricción de métodos de pago:
+- `payment_method_types: ['card']` → solo tarjeta (sin efectivo/Oxxo).
 
 ### 3) checkDriverSubscription()
 Archivo: `functions/src/stripe/checkDriverSubscription.ts`
@@ -99,9 +106,10 @@ Archivo: `functions/src/stripe/checkDriverSubscription.ts`
 ### 4) stripeWebhook
 Archivos: `functions/src/stripe/webhook.ts` y `functions/src/stripe/service.ts`
 
-Eventos manejados:
+Eventos manejados (con consentimiento requerido):
 - `checkout.session.completed`
-  - Activa suscripción del conductor, guarda `subscriptionId`, `stripeCustomerId` y establece `subscriptionActive: true`.
+  - Activa suscripción del conductor solo si `billingConsent` es `true`.
+  - Guarda `subscriptionId`, `stripeCustomerId` y establece `subscriptionActive: true`.
   - Estima `subscriptionExpiration` (+7 días) como próxima fecha de expiración.
 - `invoice.payment_failed`
   - Suspende conductor: `subscriptionActive: false`, `membership.status: 'suspended'`.
@@ -141,7 +149,7 @@ Campos relevantes:
 
 ## Reglas de Firestore (ejemplo)
 
-Asegura que campos sensibles de suscripción sean administrados por backend.
+Asegura que campos sensibles de suscripción sean administrados por backend y que solo el conductor pueda marcar su consentimiento de cobro.
 
 ```ruby
 rules_version = '2'
@@ -152,29 +160,38 @@ service cloud.firestore {
         request.auth.token.admin == true || request.auth.token.role == 'admin'
       );
     }
+    function hasComplianceRole() {
+      return request.auth != null && (
+        request.auth.token.compliance == true || request.auth.token.role == 'compliance'
+      );
+    }
+    function driverSetsOnlyBillingConsent(driverId) {
+      return request.auth != null && request.auth.uid == driverId
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['billingConsent']);
+    }
+    function noChangeToBillingConsent() {
+      return !request.resource.data.diff(resource.data).changedKeys().hasAny(['billingConsent']);
+    }
 
     match /drivers/{driverId} {
-      // Lectura: conductor dueño, admin o compliance
-      allow read: if request.auth != null && (
-        request.auth.uid == driverId || hasAdminRole()
-      );
+      // Crear por el propio chofer (consentimiento puede marcarse después)
+      allow create: if request.auth != null && request.auth.uid == driverId
+        && request.resource.data.status == 'pending';
 
-      // Escritura: solo backend/admin para campos de membresía
-      allow update, create: if hasAdminRole();
+      // Lectura: chofer dueño, admin o compliance
+      allow read: if request.auth != null && (request.auth.uid == driverId || hasAdminRole() || hasComplianceRole());
 
-      // (Opcional) Ejemplo granular si se desea permitir auto-edición limitada
-      // allow update: if request.auth.uid == driverId &&
-      //   !(('subscriptionActive' in request.resource.data) ||
-      //     ('subscriptionId' in request.resource.data) ||
-      //     ('stripeCustomerId' in request.resource.data) ||
-      //     ('stripeAccountId' in request.resource.data) ||
-      //     ('membership' in request.resource.data));
+      // Actualizaciones generales: admin/compliance, sin modificar billingConsent
+      allow update: if (hasAdminRole() || hasComplianceRole()) && noChangeToBillingConsent();
+
+      // Excepción: el propio chofer puede marcar/actualizar únicamente billingConsent
+      allow update: if driverSetsOnlyBillingConsent(driverId);
     }
   }
 }
 ```
 
-> Nota: En este repo, las reglas existentes ya restringen la escritura a admin/compliance en `drivers/`, lo cual satisface la protección de `subscriptionActive`.
+> Nota: El backend es responsable de establecer `subscriptionActive`, `subscriptionId`, `membership` y fechas de expiración; los clientes no pueden cambiar esos campos. El conductor solo puede marcar su consentimiento (`billingConsent`).
 
 ---
 

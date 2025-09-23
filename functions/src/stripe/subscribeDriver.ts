@@ -18,6 +18,10 @@ export const subscribeDriverCallable = async (data: SubscribeDriverData, context
   if (!driverSnap.exists) {
     throw new functions.https.HttpsError('failed-precondition', 'Solo los conductores pueden suscribirse');
   }
+  const driver = driverSnap.data() as any;
+  if (driver?.billingConsent !== true) {
+    throw new functions.https.HttpsError('failed-precondition', 'Debe aceptar el consentimiento de cobro (billingConsent) antes de suscribirse');
+  }
 
   const stripeSecret = functions.config().stripe?.secret;
   const priceId = functions.config().stripe?.weekly_price_id; // Precio recurrente semanal (149 MXN)
@@ -27,7 +31,6 @@ export const subscribeDriverCallable = async (data: SubscribeDriverData, context
   const stripe = new Stripe(stripeSecret, { apiVersion: '2024-04-10' });
 
   // Crear o reutilizar Customer de Stripe
-  const driver = driverSnap.data() as any;
   let stripeCustomerId: string | undefined = driver?.stripeCustomerId;
   if (!stripeCustomerId) {
     const customer = await stripe.customers.create({

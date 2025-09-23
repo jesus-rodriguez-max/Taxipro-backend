@@ -12,6 +12,15 @@ service cloud.firestore {
         request.auth.token.compliance == true || request.auth.token.role == 'compliance'
       );
     }
+    // Helper: solo permitir que el chofer modifique estrictamente el campo billingConsent
+    function driverSetsOnlyBillingConsent(driverId) {
+      return request.auth != null && request.auth.uid == driverId
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['billingConsent']);
+    }
+    // Helper: garantizar que no se modifique el campo billingConsent
+    function noChangeToBillingConsent() {
+      return !request.resource.data.diff(resource.data).changedKeys().hasAny(['billingConsent']);
+    }
 
     // --- USERS ---
     match /users/{userId} {
@@ -24,9 +33,18 @@ service cloud.firestore {
 
     // --- DRIVERS ---
     match /drivers/{driverId} {
+      // Creación del registro de chofer requiere consentimiento de cobro explícito
       allow create: if request.auth != null && request.auth.uid == driverId
         && request.resource.data.status == 'pending';
-      allow read, update: if hasAdminRole() || hasComplianceRole();
+
+      // Lectura: chofer dueño, admin o compliance
+      allow read: if request.auth != null && (request.auth.uid == driverId || hasAdminRole() || hasComplianceRole());
+
+      // Actualizaciones generales: admin o compliance, sin modificar billingConsent
+      allow update: if (hasAdminRole() || hasComplianceRole()) && noChangeToBillingConsent();
+
+      // Excepción: el propio chofer puede marcar/actualizar únicamente el campo billingConsent
+      allow update: if driverSetsOnlyBillingConsent(driverId);
       
       match /documents/{docId} {
         allow read: if request.auth != null && (request.auth.uid == driverId || hasAdminRole());

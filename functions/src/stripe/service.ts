@@ -50,6 +50,16 @@ export const handleStripeWebhook = async (event: Stripe.Event) => {
         break;
       }
       const driverRef = db.collection('drivers').doc(driverId);
+      const driverSnap = await driverRef.get();
+      if (!driverSnap.exists) {
+        functions.logger.warn(`Driver ${driverId} not found on checkout.session.completed`);
+        break;
+      }
+      const driverData = driverSnap.data() as any;
+      if (driverData?.billingConsent !== true) {
+        functions.logger.warn(`Driver ${driverId} has not accepted billingConsent. Skipping activation.`);
+        break;
+      }
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       await driverRef.set({
         stripeCustomerId: typeof session.customer === 'string' ? session.customer : undefined,

@@ -9,7 +9,7 @@ describe('handleStripeWebhook', () => {
   it('activates subscription on checkout.session.completed', async () => {
     const driverId = 'driver_checkout';
     const driverRef = admin.firestore().collection('drivers').doc(driverId);
-    await driverRef.set({ id: driverId });
+    await driverRef.set({ id: driverId, billingConsent: true });
 
     const event = makeEvent('checkout.session.completed', {
       client_reference_id: driverId,
@@ -25,6 +25,25 @@ describe('handleStripeWebhook', () => {
     expect(data.subscriptionId).toBe('sub_111');
     expect(data.stripeCustomerId).toBe('cus_111');
     expect(new Date(data.subscriptionExpiration).getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it('does NOT activate subscription if billingConsent is false', async () => {
+    const driverId = 'driver_checkout_no_consent';
+    const driverRef = admin.firestore().collection('drivers').doc(driverId);
+    await driverRef.set({ id: driverId, billingConsent: false });
+
+    const event = makeEvent('checkout.session.completed', {
+      client_reference_id: driverId,
+      customer: 'cus_222',
+      subscription: 'sub_222',
+    });
+
+    await handleStripeWebhook(event);
+
+    const after = await driverRef.get();
+    const data = after.data() as any;
+    expect(data.subscriptionActive).toBeUndefined();
+    expect(data.subscriptionId).toBeUndefined();
   });
 
   it('suspends driver on invoice.payment_failed', async () => {
