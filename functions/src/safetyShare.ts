@@ -1,7 +1,7 @@
 import * as admin from 'firebase-admin';
-import { HttpsError, onCall } from 'firebase-functions/v2/https';
-import { onRequest } from 'firebase-functions/v2/http';
-import { Trip, TripStatus } from '../lib/types';
+import * as functions from 'firebase-functions';
+import { Request, Response } from 'express';
+import { Trip } from './lib/types';
 import * as crypto from 'crypto';
 
 interface EnableShareData {
@@ -18,23 +18,22 @@ const generateShareToken = () => crypto.randomBytes(20).toString('hex');
 /**
  * Habilita la compartición de un viaje, generando un token de acceso.
  */
-export const enableShareCallable = onCall(async (request) => {
-  const { auth, data } = request;
-  if (!auth) {
-    throw new HttpsError('unauthenticated', 'El usuario no está autenticado.');
+export const enableShareCallable = functions.https.onCall(async (data: EnableShareData, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'El usuario no está autenticado.');
   }
 
-  const { tripId } = data as EnableShareData;
+  const { tripId } = data;
   const tripRef = admin.firestore().collection('trips').doc(tripId);
   const tripDoc = await tripRef.get();
 
   if (!tripDoc.exists) {
-    throw new HttpsError('not-found', 'El viaje no existe.');
+    throw new functions.https.HttpsError('not-found', 'El viaje no existe.');
   }
   const trip = tripDoc.data() as Trip;
 
-  if (trip.passengerId !== auth.uid && trip.driverId !== auth.uid) {
-    throw new HttpsError('permission-denied', 'No puedes compartir este viaje.');
+  if (trip.passengerId !== context.auth.uid && trip.driverId !== context.auth.uid) {
+    throw new functions.https.HttpsError('permission-denied', 'No puedes compartir este viaje.');
   }
 
   const shareToken = generateShareToken();
@@ -54,22 +53,21 @@ export const enableShareCallable = onCall(async (request) => {
 /**
  * Deshabilita la compartición de un viaje.
  */
-export const disableShareCallable = onCall(async (request) => {
-  const { auth, data } = request;
-  if (!auth) {
-    throw new HttpsError('unauthenticated', 'El usuario no está autenticado.');
+export const disableShareCallable = functions.https.onCall(async (data: DisableShareData, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'El usuario no está autenticado.');
   }
 
-  const { shareToken } = data as DisableShareData;
+  const { shareToken } = data;
   const shareRef = admin.firestore().collection('shared_trips').doc(shareToken);
   const shareDoc = await shareRef.get();
 
   if (!shareDoc.exists) {
-    throw new HttpsError('not-found', 'El token de compartición no es válido.');
+    throw new functions.https.HttpsError('not-found', 'El token de compartición no es válido.');
   }
 
-  if (shareDoc.data()?.passengerId !== auth.uid) {
-    throw new HttpsError('permission-denied', 'No tienes permiso para detener esta compartición.');
+  if (shareDoc.data()?.passengerId !== context.auth.uid) {
+    throw new functions.https.HttpsError('permission-denied', 'No tienes permiso para detener esta compartición.');
   }
 
   await shareRef.update({ isActive: false });
@@ -81,7 +79,7 @@ export const disableShareCallable = onCall(async (request) => {
  * Función HTTP para obtener el estado de un viaje compartido usando un token.
  * Es pública pero solo expone datos mínimos y seguros.
  */
-export const getShareStatus = onRequest({ cors: true }, async (req, res) => {
+export const getShareStatus = functions.https.onRequest(async (req: Request, res: Response) => {
   const { token } = req.query;
   if (typeof token !== 'string') {
     res.status(400).send('Token no proporcionado.');
