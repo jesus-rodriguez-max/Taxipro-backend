@@ -7,9 +7,9 @@
     "lint": "eslint .",
     "test:functions": "npm --prefix functions test",
     "test": "npm run test:functions",
-    "test:rules": "echo 'Skipping Firestore rules tests'",
+    "test:rules": "jest -c firestore/tests/jest.config.cjs --runInBand",
     "test:e2e:request-ride": "firebase emulators:exec --project taxipro-chofer --only auth,firestore,functions \"node tools/e2e_requestRide.js\"",
-    "dev:all": "concurrently -n BUILD,EMU,STRIPE -c yellow,blue,green \"npm run build -- --watch\" \"firebase emulators:start --only firestore,functions --project taxipro-usuariox\" \"stripe listen --forward-to http://localhost:5001/taxipro-usuariox/us-central1/stripeWebhook\""
+    "dev:all": "concurrently -n BUILD,EMU,STRIPE -c yellow,blue,green \"npm run build -- --watch\" \"firebase emulators:start --only firestore,functions\" \"stripe listen --forward-to http://localhost:5001/taxipro-usuariox/us-central1/stripeWebhook\""
   },
   "devDependencies": {
     "@babel/preset-env": "^7.28.3",
