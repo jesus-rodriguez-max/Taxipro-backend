@@ -39,4 +39,4 @@ jobs:
       - name: Run Firestore rules tests
         run: |
           cd $GITHUB_WORKSPACE
-          npx firebase emulators:exec --only firestore "npm run test:rules"
+          npx firebase emulators:exec --only firestore "npm run test:rules:run"
