@@ -32,8 +32,8 @@ beforeEach(async () => {
 });
 
 function getAuthedDb(auth) {
-  if (auth?.uid) {
-    return testEnv.authenticatedContext(auth.uid, auth).firestore();
+  if (auth?.sub) {
+    return testEnv.authenticatedContext(auth.sub, auth).firestore();
   }
   return testEnv.unauthenticatedContext().firestore();
 }
@@ -45,7 +45,7 @@ describe('Firestore Rules', () => {
       await context.firestore().collection("users").doc("user_123").set({ displayName: "Demo User", role: "passenger" });
     });
 
-    const db = getAuthedDb({ uid: "user_123" });
+    const db = getAuthedDb({ sub: "user_123" });
     const doc = db.collection("users").doc("user_123");
     try {
       await assertSucceeds(doc.get());
