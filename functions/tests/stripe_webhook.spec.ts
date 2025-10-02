@@ -16,9 +16,16 @@ describe('Stripe Webhook', () => {
 
   it('should handle a valid event', async () => {
     const mockEvent = {
+      id: 'evt_test',
+      object: 'event',
+      api_version: '2020-08-27',
+      created: 1620000000,
+      livemode: false,
+      pending_webhooks: 0,
+      request: { id: 'req_test', idempotency_key: null },
       type: 'payment_intent.succeeded',
-      data: { object: { id: 'pi_test', amount: 2000, currency: 'usd' } },
-    } as Stripe.Event;
+      data: { object: { id: 'pi_test', amount: 2000, currency: 'usd', metadata: { tripId: 'trip_for_succeeded' } } },
+    } as unknown as Stripe.Event;
 
     jest.spyOn(stripeService.webhooks, 'constructEvent').mockReturnValue(mockEvent);
 
@@ -43,9 +50,16 @@ describe('Stripe Webhook', () => {
   it('✅ payment_failed → el viaje cambia a PAYMENT_FAILED', async () => {
     const paymentIntentId = 'pi_failed_test';
     const mockEvent = {
+      id: 'evt_test_failed',
+      object: 'event',
+      api_version: '2020-08-27',
+      created: 1620000000,
+      livemode: false,
+      pending_webhooks: 0,
+      request: { id: 'req_test_failed', idempotency_key: null },
       type: 'payment_intent.payment_failed',
-      data: { object: { id: paymentIntentId, amount: 1000, currency: 'mxn' } },
-    } as Stripe.Event;
+      data: { object: { id: paymentIntentId, amount: 1000, currency: 'mxn', metadata: { tripId: 'trip_for_failed' } } },
+    } as unknown as Stripe.Event;
 
     jest.spyOn(stripeService.webhooks, 'constructEvent').mockReturnValue(mockEvent);
 

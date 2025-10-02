@@ -86,6 +86,11 @@ describe('Trip Functions', () => {
     const wrappedUpdateTripStatus = wrapped(updateTripStatus);
     const driverContext = { auth: { uid: 'test-driver-id' } };
 
+    beforeEach(async () => {
+      const tripData = getMockTrip({ status: TripStatus.ASSIGNED, driverId: 'test-driver-id' });
+      await admin.firestore().collection('trips').doc('test-trip-id').set(tripData);
+    });
+
     it('should update trip status to active', async () => {
       const mockTrip = getMockTrip({ status: TripStatus.ASSIGNED, origin: { point: { lat: 1, lng: 1 }, address: 'Origin' } });
       docGetMock.mockResolvedValueOnce({ exists: true, data: () => mockTrip });

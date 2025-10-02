@@ -115,21 +115,26 @@ export const handleStripeWebhook = async (event: Stripe.Event) => {
       break;
     }
 
-    // Eventos de pagos a viajes ya existentes
     case 'payment_intent.succeeded': {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      console.log('PaymentIntent successful:', paymentIntent.id);
-      // Find trip by paymentIntent.id and update its status if needed
-      // Example: await updateTripStatusByPaymentIntent(paymentIntent.id, TripStatus.COMPLETED);
+      const { tripId } = paymentIntent.metadata;
+      if (tripId) {
+        const paymentRef = db.collection('trips').doc(tripId).collection('payment').doc(paymentIntent.id);
+        await paymentRef.update({ status: 'succeeded' });
+        await db.collection('trips').doc(tripId).update({ status: TripStatus.COMPLETED });
+        functions.logger.info(`Viaje ${tripId} marcado como pagado.`);
+      }
       break;
     }
     case 'payment_intent.payment_failed': {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      console.error('PaymentIntent failed:', paymentIntent.id);
-      // Mark the trip as payment_failed
-      await updateTripStatusByPaymentIntent(paymentIntent.id, TripStatus.PAYMENT_FAILED);
-      // Log notification (e.g., send email to admin or passenger)
-      functions.logger.warn(`Payment failed for PaymentIntent ${paymentIntent.id}. Trip status updated to PAYMENT_FAILED.`);
+      const { tripId } = paymentIntent.metadata;
+      if (tripId) {
+        const paymentRef = db.collection('trips').doc(tripId).collection('payment').doc(paymentIntent.id);
+        await paymentRef.update({ status: 'failed' });
+        await db.collection('trips').doc(tripId).update({ status: TripStatus.PAYMENT_FAILED });
+        functions.logger.error(`Pago fallido para el viaje ${tripId}.`);
+      }
       break;
     }
     case 'charge.refunded': {

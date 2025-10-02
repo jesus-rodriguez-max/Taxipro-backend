@@ -34,6 +34,13 @@ import {
 import { submitRatingCallable } from './ratings/submitRating';
 import { cleanupSharedTrips } from './sharedTrips/cleanupSharedTrips';
 import { checkDisconnectedTrips } from './trips/checkDisconnectedTrips';
+import { createPaymentIntentCallable } from './payments/createPaymentIntent';
+import { requestTripOfflineCallable } from './trips/requestTripOffline';
+import { autoAssignDriver } from './trips/autoAssignDriver';
+import { updateTariffsCallable } from './fares/updateTariffs';
+import { suspendDriverCallable } from './admin/suspendDriver';
+import { getAllTripsCallable } from './admin/getAllTrips';
+import { downloadTripAudioCallable } from './admin/downloadTripAudio';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -48,6 +55,7 @@ export const updateTripStatus = https.onCall(updateTripStatusCallable);
 export const driverArrived = https.onCall(driverArrivedCallable);
 export const cancelTrip = https.onCall(cancelTripCallable);
 export const markAsNoShow = https.onCall(markAsNoShowCallable);
+export const requestTripOffline = https.onCall(requestTripOfflineCallable);
 
 // Stripe webhook (HTTP request)
 export { stripeWebhook };
@@ -82,8 +90,22 @@ export const updateSafetyConsents = https.onCall(updateSafetyConsentsCallable);
 // Ratings functions
 export const submitRating = https.onCall(submitRatingCallable);
 
+// Fares functions
+export const updateTariffs = https.onCall(updateTariffsCallable);
+
+// Admin functions
+export const suspendDriver = https.onCall(suspendDriverCallable);
+export const getAllTrips = https.onCall(getAllTripsCallable);
+export const downloadTripAudio = https.onCall(downloadTripAudioCallable);
+
 // Shared Trips functions
 export const cleanupSharedTripsScheduled = cleanupSharedTrips;
 
 // Disconnection handling functions
 export const checkDisconnectedTripsScheduled = checkDisconnectedTrips;
+
+// Payment-related functions
+export const createPaymentIntent = https.onCall(createPaymentIntentCallable);
+
+// Trip triggers
+export { autoAssignDriver };

@@ -24,11 +24,11 @@ service cloud.firestore {
 
     // --- USERS ---
     match /users/{userId} {
-      allow read, update: if request.auth != null && request.auth.uid == userId;
+      allow read: if (request.auth != null && request.auth.uid == userId) || hasAdminRole();
+      allow update: if request.auth != null && request.auth.uid == userId;
       allow create: if request.auth != null
         && request.resource.data.acceptedTerms == true
         && request.resource.data.acceptedPrivacy == true;
-      allow read: if hasAdminRole();
     }
 
     // --- DRIVERS ---
@@ -64,6 +64,11 @@ service cloud.firestore {
       match /logs/{logId} {
         allow read: if request.auth != null;
         allow write: if hasAdminRole();
+      }
+
+      match /payment/{paymentId} {
+        allow read: if (request.auth != null && resource.data.passengerId == request.auth.uid) || hasAdminRole();
+        allow write: if false; // Solo el backend puede escribir aquí
       }
     }
 

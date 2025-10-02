@@ -79,7 +79,29 @@ export const submitRatingCallable = async (data: SubmitRatingData, context: any)
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   };
 
-  await db.collection('ratings').add(newRating);
+  const driverRef = db.collection('drivers').doc(tripData.driverId);
+
+  await db.runTransaction(async (transaction) => {
+    const driverDoc = await transaction.get(driverRef);
+    if (!driverDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'Driver not found.');
+    }
+
+    const driverData = driverDoc.data()!;
+    const currentTotalRatings = driverData.totalRatings || 0;
+    const currentAvgRating = driverData.avgRating || 0;
+
+    const newTotalRatings = currentTotalRatings + 1;
+    const newAvgRating = ((currentAvgRating * currentTotalRatings) + rating) / newTotalRatings;
+
+    transaction.update(driverRef, {
+      totalRatings: newTotalRatings,
+      avgRating: newAvgRating,
+    });
+
+    const ratingRef = db.collection('ratings').doc();
+    transaction.set(ratingRef, newRating);
+  });
 
   return { status: 'success', message: 'Rating submitted successfully.' };
 };

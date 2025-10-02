@@ -42,6 +42,12 @@ describe('submitRating Callable Function', () => {
     resetMockFirestore();
   });
 
+  beforeEach(async () => {
+    const db = admin.firestore();
+    await db.collection('drivers').doc('driver1').set({ totalRatings: 0, avgRating: 0 });
+    await db.collection('drivers').doc('driver4').set({ totalRatings: 0, avgRating: 0 });
+  });
+
   it('✅ Pasajero califica un viaje completado → éxito', async () => {
     const passengerId = 'passenger1';
     const driverId = 'driver1';

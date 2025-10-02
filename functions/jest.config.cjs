@@ -3,6 +3,7 @@ module.exports = {
   testEnvironment: "node",
   testMatch: ["<rootDir>/tests/**/*.spec.ts"],
   verbose: true,
+  clearMocks: true,
   setupFilesAfterEnv: ["<rootDir>/tests/jest.setup.ts"],
   moduleFileExtensions: ["ts", "js", "json", "node"],
   globals: {

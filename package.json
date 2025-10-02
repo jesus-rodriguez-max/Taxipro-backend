@@ -7,7 +7,8 @@
     "lint": "eslint .",
     "test:functions": "npm --prefix functions test",
     "test": "npm run test:functions",
-    "test:rules": "jest -c firestore/tests/jest.config.cjs --runInBand",
+    "emulate:rules": "firebase emulators:start --only firestore",
+    "test:rules:run": "cross-env FIRESTORE_EMULATOR_HOST=localhost:9090 npx jest --config firestore/tests/jest.config.cjs --runInBand --verbose",
     "test:e2e:request-ride": "firebase emulators:exec --project taxipro-chofer --only auth,firestore,functions \"node tools/e2e_requestRide.js\"",
     "dev:all": "concurrently -n BUILD,EMU,STRIPE -c yellow,blue,green \"npm run build -- --watch\" \"firebase emulators:start --only firestore,functions\" \"stripe listen --forward-to http://localhost:5001/taxipro-usuariox/us-central1/stripeWebhook\""
   },
@@ -17,6 +18,7 @@
     "@firebase/rules-unit-testing": "^3.0.0",
     "@types/jest": "^29.5.14",
     "concurrently": "^9.2.1",
+    "cross-env": "^10.0.0",
     "firebase-tools": "13.11.4",
     "jest": "^29.7.0",
     "ts-jest": "^29.4.4"

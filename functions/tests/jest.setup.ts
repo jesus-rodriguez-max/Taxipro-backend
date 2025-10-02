@@ -1,4 +1,8 @@
-import { mockFirestore, mockApp, mockFieldValue, Timestamp } from './mocks/firebase';
+import { mockFirestore, mockApp, mockFieldValue, Timestamp, resetMockFirestore } from './mocks/firebase';
+
+beforeEach(() => {
+  resetMockFirestore();
+});
 import * as functions from 'firebase-functions';
 
 // Mock de firebase-functions para incluir la configuración de Stripe

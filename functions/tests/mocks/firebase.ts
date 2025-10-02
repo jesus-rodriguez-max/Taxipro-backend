@@ -159,6 +159,14 @@ function makeCollection(path: string, isSub = false) {
 }
 
 export const mockFirestore = () => ({
+  runTransaction: async (updateFunction: (t: any) => Promise<any>) => {
+    const transaction = {
+      get: (docRef: any) => docRef.get(),
+      update: (docRef: any, data: any) => docRef.update(data),
+      set: (docRef: any, data: any) => docRef.set(data),
+    };
+    await updateFunction(transaction);
+  },
   collection: (name: string) => makeCollection(name),
   batch() {
     const ops: Array<() => Promise<void>> = [];
