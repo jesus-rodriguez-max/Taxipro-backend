@@ -1,4 +1,5 @@
 import { FieldValue } from 'firebase-admin/firestore';
+import * as admin from 'firebase-admin';
 import { TripStatus } from '../constants/tripStatus';
 
 export interface GeoPoint {
@@ -56,7 +57,6 @@ export interface Trip {
   };
   createdAt: FieldValue;
   updatedAt: FieldValue;
-  assignedAt?: FieldValue;
   driverArrivedAt?: FieldValue; // Timestamp cuando el chofer marca "He llegado"
   startedAt?: FieldValue;
   completedAt?: FieldValue;
@@ -65,11 +65,11 @@ export interface Trip {
     lastActor: 'system' | 'driver' | 'passenger' | 'admin';
     lastAction: string;
   };
-}
+  arrivedAt?: admin.firestore.Timestamp;
+};
 
 export enum DriverMembershipStatus {
   ACTIVE = 'active',
-  GRACE_PERIOD = 'grace_period', // Falló el pago, pero aún puede operar
   SUSPENDED = 'suspended', // Acceso bloqueado por falta de pago
   UNPAID = 'unpaid', // Aún no ha pagado la primera vez
 }

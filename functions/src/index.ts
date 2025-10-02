@@ -17,9 +17,9 @@ import {
 } from './membership/processMembershipPayments'; // Añadido
 import {
   startRecordingCallable,
-  stopRecordingCallable,
-  logSafetyEventCallable,
+  stopRecordingCallable
 } from './safety';
+
 import {
   enableShareCallable,
   disableShareCallable,
@@ -41,6 +41,8 @@ import { updateTariffsCallable } from './fares/updateTariffs';
 import { suspendDriverCallable } from './admin/suspendDriver';
 import { getAllTripsCallable } from './admin/getAllTrips';
 import { downloadTripAudioCallable } from './admin/downloadTripAudio';
+import { logSafetyEventV2Callable } from './safety/logSafetyEvent';
+import { cancelTripWithPenaltyCallable } from './trips/cancelTripWithPenalty';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -72,7 +74,6 @@ export const suspendOverdueMemberships = suspendOverdueMembershipsFunction; // A
 // Safety-related callables (already wrapped in v2 onCall in safety.ts)
 export const startRecording = startRecordingCallable;
 export const stopRecording = stopRecordingCallable;
-export const logSafetyEvent = logSafetyEventCallable;
 
 // Share-related functions
 export const enableShare = enableShareCallable;
@@ -97,6 +98,12 @@ export const updateTariffs = https.onCall(updateTariffsCallable);
 export const suspendDriver = https.onCall(suspendDriverCallable);
 export const getAllTrips = https.onCall(getAllTripsCallable);
 export const downloadTripAudio = https.onCall(downloadTripAudioCallable);
+
+// Safety Shield
+export const logSafetyEventV2 = https.onCall(logSafetyEventV2Callable);
+
+// Cancellations
+export const cancelTripWithPenalty = https.onCall(cancelTripWithPenaltyCallable);
 
 // Shared Trips functions
 export const cleanupSharedTripsScheduled = cleanupSharedTrips;

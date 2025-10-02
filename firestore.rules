@@ -53,7 +53,21 @@ service cloud.firestore {
     }
 
     // --- TRIPS ---
+    // Perfiles de seguridad
+    match /safety_profiles/{userId} {
+      allow read, update: if request.auth.uid == userId;
+      allow create: if request.auth.uid == userId && request.resource.data.misuseScore == 0;
+    }
+
     match /trips/{tripId} {
+      // Un conductor no puede marcar una penalización directamente
+      allow update: if request.auth.uid == resource.data.driverId && !request.resource.data.penaltyCharged;
+      // Logs de seguridad dentro de un viaje
+      match /safety_logs/{logId} {
+        allow read: if request.auth.uid == resource.data.actorId || hasAdminRole();
+        allow write: if false; // Solo el backend puede escribir aquí
+      }
+
       allow create: if request.auth != null
         && request.resource.data.passengerId == request.auth.uid
         && request.resource.data.status == 'pending';
