@@ -1,3 +1,15 @@
+// Mock firebase-admin BEFORE importing the module under test
+jest.mock('firebase-admin', () => {
+  const { mockFirestore, mockFieldValue, Timestamp, mockApp } = require('./mocks/firebase');
+  const apps: any[] = [];
+  return {
+    initializeApp: jest.fn(() => { apps.push({ name: 'mock' }); return mockApp; }),
+    apps,
+    firestore: Object.assign(mockFirestore, { FieldValue: mockFieldValue, Timestamp }),
+    getFirestore: mockFirestore,
+  };
+});
+
 import * as admin from 'firebase-admin';
 import { sendOfflineRideRequest } from '../src/twilio/offline';
 

@@ -35,7 +35,8 @@ export async function sendOfflineRideRequest(payload: TwilioSmsPayload): Promise
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   } as const;
 
-  const ref = await db.collection('trips').add(trip);
+  const addResult = await db.collection('trips').add(trip);
+  const ref = db.collection('trips').doc(addResult.id);
 
   // Simulated driver details for offline flow response
   const driver = {

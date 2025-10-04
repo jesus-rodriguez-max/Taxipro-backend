@@ -38,11 +38,18 @@ jest.mock('firebase-functions', () => {
 });
 
 // Mock de firebase-admin
-jest.mock('firebase-admin', () => ({
-  initializeApp: jest.fn(() => mockApp),
-  // Exponer FieldValue y Timestamp en admin.firestore y permitir admin.firestore()
-  firestore: Object.assign(mockFirestore, { FieldValue: mockFieldValue, Timestamp }),
-  getFirestore: mockFirestore,
-}));
+jest.mock('firebase-admin', () => {
+  const apps: any[] = [];
+  return {
+    initializeApp: jest.fn(() => {
+      apps.push({ name: 'mock' });
+      return mockApp;
+    }),
+    apps,
+    // Exponer FieldValue y Timestamp en admin.firestore y permitir admin.firestore()
+    firestore: Object.assign(mockFirestore, { FieldValue: mockFieldValue, Timestamp }),
+    getFirestore: mockFirestore,
+  };
+});
 
 console.log('Firebase Admin SDK and Functions Config have been mocked for tests.');
