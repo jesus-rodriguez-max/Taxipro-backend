@@ -11,7 +11,7 @@
     },
     "firestore": {
       "host": "127.0.0.1",
-      "port": 9090
+      "port": 9299
     },
     "ui": {
       "enabled": true,
@@ -19,10 +19,10 @@
       "port": 4001
     },
     "hub": {
-      "port": 4401
+      "port": 4409
     },
     "logging": {
-      "port": 4501
+      "port": 4509
     },
     "singleProjectMode": true
   }
