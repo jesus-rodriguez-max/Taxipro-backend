@@ -1,7 +1,7 @@
 import { stripeWebhook } from '../src/stripe/webhook';
 import * as functions from 'firebase-functions';
 import Stripe from 'stripe';
-import { stripe as stripeService } from '../src/stripe/service';
+import * as serviceModule from '../src/stripe/service';
 import * as admin from 'firebase-admin';
 import { TripStatus } from '../src/constants/tripStatus';
 
@@ -27,7 +27,8 @@ describe('Stripe Webhook', () => {
       data: { object: { id: 'pi_test', amount: 2000, currency: 'usd', metadata: { tripId: 'trip_for_succeeded' } } },
     } as unknown as Stripe.Event;
 
-    jest.spyOn(stripeService.webhooks, 'constructEvent').mockReturnValue(mockEvent);
+    const fakeStripe = { webhooks: { constructEvent: jest.fn().mockReturnValue(mockEvent) } } as unknown as Stripe;
+    jest.spyOn(serviceModule, 'getStripe').mockReturnValue(fakeStripe as any);
 
     const req = { headers: { 'stripe-signature': 'test_signature' }, rawBody: Buffer.from(JSON.stringify(mockEvent)) } as unknown as functions.https.Request;
     const res = { json: jest.fn(), status: jest.fn().mockReturnThis(), send: jest.fn() } as unknown as functions.Response;
@@ -37,7 +38,8 @@ describe('Stripe Webhook', () => {
   });
 
   it('should handle an invalid signature', async () => {
-    jest.spyOn(stripeService.webhooks, 'constructEvent').mockImplementation(() => { throw new Error('Invalid signature'); });
+    const fakeStripe = { webhooks: { constructEvent: jest.fn(() => { throw new Error('Invalid signature'); }) } } as unknown as Stripe;
+    jest.spyOn(serviceModule, 'getStripe').mockReturnValue(fakeStripe as any);
 
     const req = { headers: { 'stripe-signature': 'invalid_signature' }, rawBody: Buffer.from(JSON.stringify({})) } as unknown as functions.https.Request;
     const res = { status: jest.fn().mockReturnThis(), send: jest.fn() } as unknown as functions.Response;
@@ -61,7 +63,8 @@ describe('Stripe Webhook', () => {
       data: { object: { id: paymentIntentId, amount: 1000, currency: 'mxn', metadata: { tripId: 'trip_for_failed' } } },
     } as unknown as Stripe.Event;
 
-    jest.spyOn(stripeService.webhooks, 'constructEvent').mockReturnValue(mockEvent);
+    const fakeStripe = { webhooks: { constructEvent: jest.fn().mockReturnValue(mockEvent) } } as unknown as Stripe;
+    jest.spyOn(serviceModule, 'getStripe').mockReturnValue(fakeStripe as any);
 
     // Prepare a trip with matching transactionId
     const db = admin.firestore();
@@ -86,7 +89,8 @@ describe('Stripe Webhook', () => {
       data: { object: { id: chargeId, amount: 500, currency: 'mxn' } },
     } as Stripe.Event;
 
-    jest.spyOn(stripeService.webhooks, 'constructEvent').mockReturnValue(mockEvent);
+    const fakeStripe = { webhooks: { constructEvent: jest.fn().mockReturnValue(mockEvent) } } as unknown as Stripe;
+    jest.spyOn(serviceModule, 'getStripe').mockReturnValue(fakeStripe as any);
 
     // Prepare a trip with matching transactionId
     const db = admin.firestore();

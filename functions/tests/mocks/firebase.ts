@@ -71,7 +71,7 @@ function makeDocRef(collPath: string, id: string, parent?: any) {
   const ref = {
     id,
     path: `${collPath}/${id}`,
-    parent: parent,
+    parent: parent ? { path: collPath, parent } : undefined,
     async get() {
       if (typeof docGetMock.getMockImplementation === 'function' && docGetMock.getMockImplementation()) {
         return await docGetMock({ path: this.path });
@@ -88,11 +88,23 @@ function makeDocRef(collPath: string, id: string, parent?: any) {
       const col = collStore(collPath);
       col[id] = applyFieldOps(col[id] || {}, updates);
       if (this.parent) {
-        const parentColPath = this.parent.path.split('/').slice(0, -1).join('/');
-        const parentCol = collStore(parentColPath);
-        const parentDoc = parentCol[this.parent.id];
-        if (parentDoc) {
-          parentCol[this.parent.id] = { ...parentDoc, [collPath.split('/').pop()!]: col[id] };
+        // this.parent may be either a DocumentRef (older mock behavior)
+        // or a CollectionRef-like object with shape { path, parent: DocumentRef }
+        let parentDocRef: any | undefined;
+        let parentColPath: string | undefined;
+        if (typeof (this.parent as any).id === 'string') {
+          parentDocRef = this.parent as any; // DocumentRef
+          parentColPath = parentDocRef.path.split('/').slice(0, -1).join('/');
+        } else if ((this.parent as any).parent && typeof (this.parent as any).path === 'string') {
+          parentDocRef = (this.parent as any).parent; // DocumentRef
+          parentColPath = parentDocRef.path.split('/').slice(0, -1).join('/');
+        }
+        if (parentDocRef && parentColPath) {
+          const parentCol = collStore(parentColPath);
+          const parentDoc = parentCol[parentDocRef.id];
+          if (parentDoc) {
+            parentCol[parentDocRef.id] = { ...parentDoc, [collPath.split('/').pop()!]: col[id] };
+          }
         }
       }
     },
