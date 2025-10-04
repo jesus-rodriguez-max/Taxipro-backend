@@ -55,6 +55,7 @@ export interface Trip {
     transactionId?: string; // ID de PaymentIntent de Stripe
     isSettledToDriver: boolean; // Para liquidación de saldos pendientes
   };
+  penaltyCharged?: boolean;
   createdAt: FieldValue;
   updatedAt: FieldValue;
   driverArrivedAt?: FieldValue; // Timestamp cuando el chofer marca "He llegado"
@@ -70,6 +71,7 @@ export interface Trip {
 
 export enum DriverMembershipStatus {
   ACTIVE = 'active',
+  GRACE_PERIOD = 'grace_period',
   SUSPENDED = 'suspended', // Acceso bloqueado por falta de pago
   UNPAID = 'unpaid', // Aún no ha pagado la primera vez
 }

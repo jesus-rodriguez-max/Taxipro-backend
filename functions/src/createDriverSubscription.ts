@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import Stripe from 'stripe';
+import { STRIPE_SECRET, STRIPE_WEEKLY_PRICE_ID } from './config';
 
 // This callable creates a Stripe Checkout session for a driver to start their weekly subscription.
 // It assumes that the Stripe secret key and the price ID for the weekly subscription are set in
@@ -20,8 +21,8 @@ export const createDriverSubscriptionSessionCallable = functions.https.onCall(as
   }
 
   // Load Stripe configuration
-  const stripeSecret = functions.config().stripe?.secret;
-  const priceId = functions.config().stripe?.weekly_price_id;
+  const stripeSecret = STRIPE_SECRET;
+  const priceId = STRIPE_WEEKLY_PRICE_ID;
   if (!stripeSecret || !priceId) {
     throw new functions.https.HttpsError('failed-precondition', 'La configuración de Stripe no está completa');
   }

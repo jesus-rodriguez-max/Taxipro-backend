@@ -39,32 +39,85 @@ function getAuthedDb(auth) {
 }
 
 describe('Firestore Rules', () => {
-  test("Usuario autenticado puede leer su propio perfil", async () => {
-    // Seed data required for this specific test
-    await testEnv.withSecurityRulesDisabled(async (context) => {
-      await context.firestore().collection("users").doc("user_123").set({ displayName: "Demo User", role: "passenger" });
+  describe('Users', () => {
+    test("Usuario autenticado puede leer su propio perfil", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection("users").doc("user_123").set({ displayName: "Demo User", role: "passenger" });
+      });
+  
+      const db = getAuthedDb({ sub: "user_123" });
+      const doc = db.collection("users").doc("user_123");
+      await assertSucceeds(doc.get());
     });
 
-    const db = getAuthedDb({ sub: "user_123" });
-    const doc = db.collection("users").doc("user_123");
-    try {
-      await assertSucceeds(doc.get());
-    } catch (e) {
-      console.error('assertSucceeds failed:', e.message);
-      throw e;
-    }
+    test("Usuario no autenticado no puede escribir en users", async () => {
+      const db = getAuthedDb(null);
+      const doc = db.collection("users").doc("otro");
+      await assertFails(doc.set({ acceptedTerms: true, acceptedPrivacy: true }));
+    });
+
+    test("Usuario puede actualizar su propio displayName, phoneNumber y email", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection("users").doc("user_123").set({});
+      });
+      const db = getAuthedDb({ sub: "user_123" });
+      const doc = db.collection("users").doc("user_123");
+      await assertSucceeds(doc.update({ displayName: "New Name", phoneNumber: "123456789", email: "new@test.com" }));
+    });
+
+    test("Usuario no puede actualizar otros campos en su perfil", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection("users").doc("user_123").set({});
+      });
+      const db = getAuthedDb({ sub: "user_123" });
+      const doc = db.collection("users").doc("user_123");
+      await assertFails(doc.update({ role: "admin" }));
+    });
+
+    test("Usuario puede crear su perfil con los campos correctos", async () => {
+      const db = getAuthedDb({ sub: "user_123" });
+      const doc = db.collection("users").doc("user_123");
+      await assertSucceeds(doc.set({ displayName: "Test User", phoneNumber: "123456789", email: "test@test.com", acceptedTerms: true, acceptedPrivacy: true, createdAt: new Date() }));
+    });
+
+    test("Usuario no puede crear su perfil con campos incorrectos", async () => {
+      const db = getAuthedDb({ sub: "user_123" });
+      const doc = db.collection("users").doc("user_123");
+      await assertFails(doc.set({ displayName: "Test User", phoneNumber: "123456789", email: "test@test.com", acceptedTerms: true, acceptedPrivacy: true, createdAt: new Date(), role: "admin" }));
+    });
   });
 
-  test("Usuario no autenticado no puede escribir en users", async () => {
-    const db = getAuthedDb(null);
-    const doc = db.collection("users").doc("otro");
-    // Attempt to create a document that complies with the rules, but as an unauthenticated user.
-    // This ensures we are testing the `request.auth != null` part of the rule.
-    try {
-      await assertFails(doc.set({ acceptedTerms: true, acceptedPrivacy: true }));
-    } catch (e) {
-      console.error('assertFails failed:', e.message);
-      throw e;
-    }
+  describe('Drivers', () => {
+    test("Chofer puede crear su perfil con los campos correctos", async () => {
+      const db = getAuthedDb({ sub: "driver_123" });
+      const doc = db.collection("drivers").doc("driver_123");
+      await assertSucceeds(doc.set({ status: 'pending', createdAt: new Date(), displayName: "Test Driver", phoneNumber: "123456789", email: "driver@test.com" }));
+    });
+
+    test("Chofer no puede crear su perfil con campos incorrectos", async () => {
+      const db = getAuthedDb({ sub: "driver_123" });
+      const doc = db.collection("drivers").doc("driver_123");
+      await assertFails(doc.set({ status: 'pending', createdAt: new Date(), displayName: "Test Driver", phoneNumber: "123456789", email: "driver@test.com", role: "admin" }));
+    });
+  });
+
+  describe('Trips', () => {
+    test("Admin puede actualizar status y updatedAt de un viaje", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection("trips").doc("trip_123").set({});
+      });
+      const db = getAuthedDb({ sub: "admin_user", admin: true });
+      const doc = db.collection("trips").doc("trip_123");
+      await assertSucceeds(doc.update({ status: "completed", updatedAt: new Date() }));
+    });
+
+    test("Admin no puede actualizar otros campos de un viaje", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection("trips").doc("trip_123").set({});
+      });
+      const db = getAuthedDb({ sub: "admin_user", admin: true });
+      const doc = db.collection("trips").doc("trip_123");
+      await assertFails(doc.update({ passengerId: "new_passenger" }));
+    });
   });
 });

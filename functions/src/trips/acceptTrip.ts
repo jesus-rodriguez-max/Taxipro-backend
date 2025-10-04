@@ -1,8 +1,8 @@
 import * as functions from 'firebase-functions';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { TripStatus } from '../lib/types.js';
-import { isDriverSubscriptionActive } from '../lib/subscription.js';
-import { log } from '../lib/logging.js';
+import { TripStatus } from '../lib/types';
+import { isDriverSubscriptionActive } from '../lib/subscription';
+import { log } from '../lib/logging';
 
 /**
  * Callable that allows a driver to accept a pending trip.

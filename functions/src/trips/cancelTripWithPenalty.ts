@@ -2,9 +2,8 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { HttpsError } from 'firebase-functions/v1/https';
 import { Trip, TripStatus } from '../lib/types';
-import { stripe } from '../stripe/service';
-
-const db = admin.firestore();
+import { getStripe } from '../stripe/service';
+import { TRIPS_PENALTY_AMOUNT } from '../config';
 
 interface CancelTripWithPenaltyData {
   tripId: string;
@@ -17,6 +16,8 @@ export const cancelTripWithPenaltyCallable = async (data: CancelTripWithPenaltyD
 
   const { tripId } = data;
   const driverId = context.auth.uid;
+  const penaltyAmount: number = TRIPS_PENALTY_AMOUNT; // centavos
+  const db = admin.firestore();
 
   const tripRef = db.collection('trips').doc(tripId);
   const tripSnap = await tripRef.get();
@@ -26,6 +27,10 @@ export const cancelTripWithPenaltyCallable = async (data: CancelTripWithPenaltyD
   }
 
   const trip = tripSnap.data() as Trip;
+
+  if (trip.penaltyCharged) {
+    throw new HttpsError('already-exists', 'Ya se ha cobrado una penalización por este viaje.');
+  }
 
   if (trip.driverId !== driverId) {
     throw new HttpsError('permission-denied', 'No puedes cancelar un viaje que no te fue asignado.');
@@ -51,22 +56,29 @@ export const cancelTripWithPenaltyCallable = async (data: CancelTripWithPenaltyD
 
     if (passengerData?.stripeCustomerId) {
       try {
-        await stripe.charges.create({
-          amount: 2300, // 23.00 MXN en centavos
+        await getStripe().charges.create({
+          amount: penaltyAmount, // 23.00 MXN en centavos
           currency: 'mxn',
           customer: passengerData.stripeCustomerId,
           description: `Penalización por no-show en viaje ${tripId}`,
           metadata: { tripId },
         });
+        // TODO: Enviar notificación al pasajero sobre el cobro de la penalización
       } catch (error) {
         console.error('Error al cobrar la penalización:', error);
-        // Si el cobro falla, no se cancela el viaje para que se pueda reintentar
+        await tripRef.update({
+          status: TripStatus.CANCELLED,
+          penaltyChargeFailed: true,
+          penaltyAmount: penaltyAmount / 100,
+          penaltyReason: 'no_show',
+          cancelledBy: 'driver',
+        });
         throw new HttpsError('internal', 'No se pudo procesar el cargo de penalización.');
       }
     } else {
       // Marcar como cargo pendiente si no hay cliente de Stripe
       await db.collection('users').doc(trip.passengerId).collection('pending_charges').add({
-        amount: 23,
+        amount: penaltyAmount / 100,
         currency: 'mxn',
         description: `Penalización por no-show en viaje ${tripId}`,
         tripId,
@@ -77,7 +89,7 @@ export const cancelTripWithPenaltyCallable = async (data: CancelTripWithPenaltyD
     await tripRef.update({
       status: TripStatus.CANCELLED,
       penaltyCharged: true,
-      penaltyAmount: 23, // Monto fijo
+      penaltyAmount: penaltyAmount / 100, // Monto fijo
       penaltyReason: 'no_show',
       cancelledBy: 'driver',
     });

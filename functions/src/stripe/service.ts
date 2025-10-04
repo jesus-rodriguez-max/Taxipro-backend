@@ -2,13 +2,20 @@ import Stripe from 'stripe';
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { TripStatus, DriverMembershipStatus } from '../lib/types';
+import { STRIPE_SECRET, STRIPE_SUBSCRIPTION_DAYS } from '../config';
 
 // Inicializa el cliente de Stripe con la clave secreta obtenida de forma segura
 // desde la configuración de entorno de Firebase.
-export const stripe = new Stripe(functions.config().stripe.secret, {
-  apiVersion: '2024-04-10', // Usa una versión de API fija y soportada
-  typescript: true,
-});
+let stripeClient: Stripe | null = null;
+export const getStripe = (): Stripe => {
+  if (!stripeClient) {
+    stripeClient = new Stripe(STRIPE_SECRET, {
+      apiVersion: '2024-04-10', // Usa una versión de API fija y soportada
+      typescript: true,
+    });
+  }
+  return stripeClient;
+};
 
 /**
  * Crea un PaymentIntent para un nuevo cobro.
@@ -24,7 +31,7 @@ export const createPaymentIntent = async (
   customerId: string,
   paymentMethodId: string
 ): Promise<Stripe.PaymentIntent> => {
-  return stripe.paymentIntents.create({
+  return getStripe().paymentIntents.create({
     amount,
     currency,
     customer: customerId,
@@ -43,107 +50,140 @@ export const handleStripeWebhook = async (event: Stripe.Event) => {
   switch (event.type) {
     // Suscripción iniciada mediante Checkout
     case 'checkout.session.completed': {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const driverId = (session.client_reference_id as string) || '';
-      if (!driverId) {
-        functions.logger.warn('checkout.session.completed without client_reference_id');
-        break;
+      try {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const driverId = (session.client_reference_id as string) || '';
+        if (!driverId) {
+          functions.logger.warn('checkout.session.completed without client_reference_id');
+          break;
+        }
+        const driverRef = db.collection('drivers').doc(driverId);
+        const driverSnap = await driverRef.get();
+        if (!driverSnap.exists) {
+          functions.logger.warn(`Driver ${driverId} not found on checkout.session.completed`);
+          break;
+        }
+        const driverData = driverSnap.data() as any;
+        if (driverData?.subscriptionId === session.subscription) {
+          functions.logger.warn(`Subscription ${session.subscription} already activated for driver ${driverId}.`);
+          break;
+        }
+        if (driverData?.billingConsent !== true) {
+          functions.logger.warn(`Driver ${driverId} has not accepted billingConsent. Skipping activation.`);
+          break;
+        }
+        const subscriptionDays = STRIPE_SUBSCRIPTION_DAYS || 7;
+        const expiresAt = new Date(Date.now() + subscriptionDays * 24 * 60 * 60 * 1000);
+        await driverRef.set({
+          stripeCustomerId: typeof session.customer === 'string' ? session.customer : undefined,
+          subscriptionId: typeof session.subscription === 'string' ? session.subscription : undefined,
+          subscriptionActive: true,
+          subscriptionExpiration: expiresAt,
+          membership: {
+            status: DriverMembershipStatus.ACTIVE,
+            lastPaymentAttempt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+        } as any, { merge: true });
+        functions.logger.info(`Driver ${driverId} subscription activated via Checkout.`);
+      } catch (error) {
+        functions.logger.error('Error in checkout.session.completed:', error);
       }
-      const driverRef = db.collection('drivers').doc(driverId);
-      const driverSnap = await driverRef.get();
-      if (!driverSnap.exists) {
-        functions.logger.warn(`Driver ${driverId} not found on checkout.session.completed`);
-        break;
-      }
-      const driverData = driverSnap.data() as any;
-      if (driverData?.billingConsent !== true) {
-        functions.logger.warn(`Driver ${driverId} has not accepted billingConsent. Skipping activation.`);
-        break;
-      }
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      await driverRef.set({
-        stripeCustomerId: typeof session.customer === 'string' ? session.customer : undefined,
-        subscriptionId: typeof session.subscription === 'string' ? session.subscription : undefined,
-        subscriptionActive: true,
-        subscriptionExpiration: expiresAt,
-        membership: {
-          status: DriverMembershipStatus.ACTIVE,
-          lastPaymentAttempt: admin.firestore.FieldValue.serverTimestamp(),
-        },
-      } as any, { merge: true });
-      functions.logger.info(`Driver ${driverId} subscription activated via Checkout.`);
       break;
     }
 
     // Falla de cobro de suscripción
     case 'invoice.payment_failed': {
-      const invoice = event.data.object as Stripe.Invoice;
-      const customerId = (invoice.customer as string) || '';
-      if (!customerId) break;
-      await updateDriverByField('stripeCustomerId', customerId, {
-        subscriptionActive: false,
-        membership: { status: DriverMembershipStatus.SUSPENDED, lastPaymentAttempt: admin.firestore.FieldValue.serverTimestamp() },
-      });
-      functions.logger.warn(`Invoice payment failed for customer ${customerId}. Driver suspended.`);
+      try {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerId = (invoice.customer as string) || '';
+        if (!customerId) break;
+        await updateDriverByField('stripeCustomerId', customerId, {
+          subscriptionActive: false,
+          membership: { status: DriverMembershipStatus.SUSPENDED, lastPaymentAttempt: admin.firestore.FieldValue.serverTimestamp() },
+        });
+        functions.logger.warn(`Invoice payment failed for customer ${customerId}. Driver suspended.`);
+      } catch (error) {
+        functions.logger.error('Error in invoice.payment_failed:', error);
+      }
       break;
     }
 
     // Cuenta Connect actualizada (KYC / habilitaciones)
     case 'account.updated': {
-      const account = event.data.object as Stripe.Account;
-      const verified = !!account.charges_enabled && !!account.details_submitted;
-      await updateDriverByField('stripeAccountId', account.id, {
-        isApproved: verified,
-        kyc: { verified },
-      });
-      functions.logger.info(`Account ${account.id} updated. KYC verified=${verified}`);
+      try {
+        const account = event.data.object as Stripe.Account;
+        const verified = !!account.charges_enabled && !!account.details_submitted;
+        await updateDriverByField('stripeAccountId', account.id, {
+          isApproved: verified,
+          kyc: { verified },
+        });
+        functions.logger.info(`Account ${account.id} updated. KYC verified=${verified}`);
+      } catch (error) {
+        functions.logger.error('Error in account.updated:', error);
+      }
       break;
     }
 
     // Cancelación de suscripción
     case 'customer.subscription.deleted': {
-      const sub = event.data.object as Stripe.Subscription;
-      const customerId = (sub.customer as string) || '';
-      if (!customerId) break;
-      await updateDriverByField('stripeCustomerId', customerId, {
-        subscriptionActive: false,
-        subscriptionId: null,
-        subscriptionExpiration: new Date(0),
-        membership: { status: DriverMembershipStatus.UNPAID },
-      });
-      functions.logger.info(`Subscription deleted for customer ${customerId}. Driver set to UNPAID.`);
+      try {
+        const sub = event.data.object as Stripe.Subscription;
+        const customerId = (sub.customer as string) || '';
+        if (!customerId) break;
+        await updateDriverByField('stripeCustomerId', customerId, {
+          subscriptionActive: false,
+          subscriptionId: null,
+          subscriptionExpiration: new Date(0),
+          membership: { status: DriverMembershipStatus.UNPAID },
+        });
+        functions.logger.info(`Subscription deleted for customer ${customerId}. Driver set to UNPAID.`);
+      } catch (error) {
+        functions.logger.error('Error in customer.subscription.deleted:', error);
+      }
       break;
     }
 
     case 'payment_intent.succeeded': {
-      const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      const { tripId } = paymentIntent.metadata;
-      if (tripId) {
-        const paymentRef = db.collection('trips').doc(tripId).collection('payment').doc(paymentIntent.id);
-        await paymentRef.update({ status: 'succeeded' });
-        await db.collection('trips').doc(tripId).update({ status: TripStatus.COMPLETED });
-        functions.logger.info(`Viaje ${tripId} marcado como pagado.`);
+      try {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        const { tripId } = paymentIntent.metadata;
+        if (tripId) {
+          const paymentRef = db.collection('trips').doc(tripId).collection('payment').doc(paymentIntent.id);
+          await paymentRef.update({ status: 'succeeded', chargeId: paymentIntent.latest_charge });
+          await db.collection('trips').doc(tripId).update({ status: TripStatus.COMPLETED });
+          functions.logger.info(`Viaje ${tripId} marcado como pagado.`);
+        }
+      } catch (error) {
+        functions.logger.error('Error in payment_intent.succeeded:', error);
       }
       break;
     }
     case 'payment_intent.payment_failed': {
-      const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      const { tripId } = paymentIntent.metadata;
-      if (tripId) {
-        const paymentRef = db.collection('trips').doc(tripId).collection('payment').doc(paymentIntent.id);
-        await paymentRef.update({ status: 'failed' });
-        await db.collection('trips').doc(tripId).update({ status: TripStatus.PAYMENT_FAILED });
-        functions.logger.error(`Pago fallido para el viaje ${tripId}.`);
+      try {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        const { tripId } = paymentIntent.metadata;
+        if (tripId) {
+          const paymentRef = db.collection('trips').doc(tripId).collection('payment').doc(paymentIntent.id);
+          await paymentRef.update({ status: 'failed' });
+          await db.collection('trips').doc(tripId).update({ status: TripStatus.PAYMENT_FAILED });
+          functions.logger.error(`Pago fallido para el viaje ${tripId}.`);
+        }
+      } catch (error) {
+        functions.logger.error('Error in payment_intent.payment_failed:', error);
       }
       break;
     }
     case 'charge.refunded': {
-      const charge = event.data.object as Stripe.Charge;
-      console.log('Charge refunded:', charge.id);
-      // Mark the trip as refunded
-      await updateTripStatusByCharge(charge.id, TripStatus.REFUNDED);
-      // Adjust data in Firestore (e.g., update fare details, balance)
-      functions.logger.info(`Charge ${charge.id} refunded. Trip status updated to REFUNDED.`);
+      try {
+        const charge = event.data.object as Stripe.Charge;
+        console.log('Charge refunded:', charge.id);
+        // Mark the trip as refunded
+        await updateTripStatusByCharge(charge.id, TripStatus.REFUNDED);
+        // Adjust data in Firestore (e.g., update fare details, balance)
+        functions.logger.info(`Charge ${charge.id} refunded. Trip status updated to REFUNDED.`);
+      } catch (error) {
+        functions.logger.error('Error in charge.refunded:', error);
+      }
       break;
     }
 
@@ -168,11 +208,9 @@ async function updateTripStatusByPaymentIntent(paymentIntentId: string, status: 
 // Helper function to update trip status by charge ID (for refunds)
 async function updateTripStatusByCharge(chargeId: string, status: TripStatus) {
   const db = admin.firestore();
-  // Assuming charge ID is also stored in payment.transactionId or a separate field
-  // For simplicity, let's assume transactionId can be either PaymentIntent ID or Charge ID for now
-  const tripQuery = await db.collection('trips').where('payment.transactionId', '==', chargeId).limit(1).get();
-  if (!tripQuery.empty) {
-    const tripRef = tripQuery.docs[0].ref;
+  const paymentQuery = await db.collectionGroup('payment').where('chargeId', '==', chargeId).limit(1).get();
+  if (!paymentQuery.empty) {
+    const tripRef = paymentQuery.docs[0].ref.parent.parent!;
     await tripRef.update({ status, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
     functions.logger.info(`Trip ${tripRef.id} status updated to ${status} for Charge ${chargeId}.`);
   } else {
@@ -189,6 +227,5 @@ async function updateDriverByField(field: 'stripeCustomerId' | 'stripeAccountId'
     return;
   }
   const ref = snap.docs[0].ref;
-  // Merge nested membership updates preserving structure
-  await ref.set(updates, { merge: true });
+  await ref.update(updates);
 }

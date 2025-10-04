@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import Stripe from 'stripe';
+import { STRIPE_SECRET, STRIPE_ONBOARDING_REFRESH_URL, STRIPE_ONBOARDING_RETURN_URL } from '../config';
 
 interface CreateDriverAccountData {
   refreshUrl?: string;
@@ -14,7 +15,7 @@ export const createDriverAccountCallable = async (data: CreateDriverAccountData,
   }
   const driverId = context.auth.uid;
 
-  const stripeSecret = functions.config().stripe?.secret;
+  const stripeSecret = STRIPE_SECRET;
   if (!stripeSecret) {
     throw new functions.https.HttpsError('failed-precondition', 'Stripe secret no configurado.');
   }
@@ -47,8 +48,8 @@ export const createDriverAccountCallable = async (data: CreateDriverAccountData,
     await driverRef.update({ stripeAccountId });
   }
 
-  const refreshUrl = data?.refreshUrl || functions.config().stripe?.onboarding_refresh_url || 'https://taxipro.mx/stripe/onboarding/retry';
-  const returnUrl = data?.returnUrl || functions.config().stripe?.onboarding_return_url || 'https://taxipro.mx/stripe/onboarding/complete';
+  const refreshUrl = data?.refreshUrl || STRIPE_ONBOARDING_REFRESH_URL;
+  const returnUrl = data?.returnUrl || STRIPE_ONBOARDING_RETURN_URL;
 
   // Crear Account Link para onboarding/KYC
   const link = await stripe.accountLinks.create({

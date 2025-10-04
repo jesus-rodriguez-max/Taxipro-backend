@@ -91,7 +91,9 @@ describe('Stripe Webhook', () => {
     // Prepare a trip with matching transactionId
     const db = admin.firestore();
     const tripRef = db.collection('trips').doc('trip_for_refund');
-    await tripRef.set({ payment: { transactionId: chargeId, method: 'stripe', isSettledToDriver: false }, status: TripStatus.ACTIVE, createdAt: new Date(), updatedAt: new Date() });
+    await tripRef.set({ status: TripStatus.ACTIVE, createdAt: new Date(), updatedAt: new Date() });
+    const paymentRef = tripRef.collection('payment').doc('payment_123');
+    await paymentRef.set({ chargeId: chargeId, method: 'stripe', isSettledToDriver: false });
 
     const req = { headers: { 'stripe-signature': 'test_signature' }, rawBody: Buffer.from(JSON.stringify(mockEvent)) } as unknown as functions.https.Request;
     const res = { json: jest.fn(), status: jest.fn().mockReturnThis(), send: jest.fn() } as unknown as functions.Response;

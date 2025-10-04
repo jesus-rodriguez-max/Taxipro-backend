@@ -12,6 +12,9 @@ interface SafetyEventData {
  * Esta es una función genérica para centralizar el logging de eventos de seguridad.
  */
 const logEvent = async (tripId: string, type: SafetyEventData['type'], passengerId: string, metadata: any = {}) => {
+  if (admin.apps.length === 0) {
+    admin.initializeApp();
+  }
   const logRef = admin.firestore().collection('trips').doc(tripId).collection('safety_logs').doc();
   
   await logRef.set({

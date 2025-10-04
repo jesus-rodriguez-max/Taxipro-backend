@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "main": "dist/index.js",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "build": "tsc",
     "start": "npm run build && firebase emulators:start --import=../seed --export-on-exit",
@@ -12,11 +12,11 @@
     "deploy:functions": "firebase deploy --only functions"
   },
   "dependencies": {
+    "dotenv": "^17.2.3",
     "firebase-admin": "^12.7.0",
     "firebase-functions": "^5.1.1",
     "geofire-common": "^6.0.0",
     "stripe": "^15.8.0",
-    "taxipro-backend-e2e": "file:../..",
     "twilio": "^5.10.2"
   },
   "devDependencies": {

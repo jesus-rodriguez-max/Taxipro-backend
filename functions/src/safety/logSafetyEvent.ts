@@ -2,11 +2,11 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { HttpsError } from 'firebase-functions/v1/https';
 import { SafetyProfile, SafetyLog, SafetyEventType } from '../models/safety';
+import { SAFETY_RATE_LIMIT_MINUTES, SAFETY_DAILY_LIMIT } from '../config';
 
 import * as crypto from 'crypto';
 import { sendWhatsApp, makeCall } from '../services/twilio';
 
-const db = admin.firestore();
 
 interface LogSafetyEventData {
   tripId: string;
@@ -20,9 +20,12 @@ export const logSafetyEventV2Callable = async (data: LogSafetyEventData, context
   if (!context.auth) {
     throw new HttpsError('unauthenticated', 'El usuario debe estar autenticado.');
   }
-
   const { tripId, eventType, actorId, coords, audioBase64 } = data;
+  if (!Object.values(SafetyEventType).includes(eventType)) {
+    throw new HttpsError('invalid-argument', 'El tipo de evento no es válido.');
+  }
   const userId = context.auth.uid;
+  const db = admin.firestore();
 
   if (userId !== actorId) {
     throw new HttpsError('permission-denied', 'No puedes reportar un evento en nombre de otro usuario.');
@@ -47,8 +50,11 @@ export const logSafetyEventV2Callable = async (data: LogSafetyEventData, context
   }
 
   // 2. Validar límites de uso (rate limiting)
+  const rateLimitMinutes = SAFETY_RATE_LIMIT_MINUTES;
+  const dailyLimit = SAFETY_DAILY_LIMIT;
+
   const now = admin.firestore.Timestamp.now();
-  const tenMinutesAgo = admin.firestore.Timestamp.fromMillis(now.toMillis() - 600000);
+  const tenMinutesAgo = admin.firestore.Timestamp.fromMillis(now.toMillis() - rateLimitMinutes * 60 * 1000);
   const twentyFourHoursAgo = admin.firestore.Timestamp.fromMillis(now.toMillis() - 86400000);
 
   const recentLogsQuery = db.collectionGroup('safety_logs')
@@ -65,11 +71,11 @@ export const logSafetyEventV2Callable = async (data: LogSafetyEventData, context
   ]);
 
   if (!recentLogsSnap.empty) {
-    throw new HttpsError('resource-exhausted', 'Solo puedes enviar una alerta cada 10 minutos.');
+    throw new HttpsError('resource-exhausted', `Solo puedes enviar una alerta cada ${rateLimitMinutes} minutos.`);
   }
 
-  if (dailyLogsSnap.size >= 3) {
-    throw new HttpsError('resource-exhausted', 'Has alcanzado el límite de 3 alertas diarias.');
+  if (dailyLogsSnap.size >= dailyLimit) {
+    throw new HttpsError('resource-exhausted', `Has alcanzado el límite de ${dailyLimit} alertas diarias.`);
   }
 
   // 3. Subir audio a Cloud Storage si existe
@@ -93,39 +99,19 @@ export const logSafetyEventV2Callable = async (data: LogSafetyEventData, context
     recipients: [], // Se llenará después de enviar las alertas
   };
 
-  const hashPayload = crypto.createHash('sha256').update(JSON.stringify(logPayload)).digest('hex');
-  const safetyLog: SafetyLog = { ...logPayload, hashPayload };
-
-  // 5. Enviar alertas por Twilio (SMS/WhatsApp)
+  // Determinar destinatarios (mínimo seguro)
   const recipients: string[] = [];
   if (safetyProfile.trustedContactPhone) {
-    const mapUrl = `https://www.google.com/maps/search/?api=1&query=${coords.latitude},${coords.longitude}`;
-    const shareLink = `https://taxipro.app/share/${tripId}`; // Asumiendo que existe una URL para compartir viajes
-    const messageBody = `Alerta de seguridad de TaxiPro: ${mapUrl} | ${shareLink}`;
-
-    const messageSid = await sendWhatsApp(safetyProfile.trustedContactPhone, messageBody);
-    if (messageSid) {
-      recipients.push(safetyProfile.trustedContactPhone);
-      safetyLog.twilioMessageSid = messageSid;
-    }
+    recipients.push(safetyProfile.trustedContactPhone);
   }
 
-  // 6. Realizar llamada al 911 si está habilitado
-  const call911Enabled = functions.config().env?.call_911_enabled === 'true';
-  if (call911Enabled) {
-    const tripSnap = await db.collection('trips').doc(tripId).get();
-    const tripData = tripSnap.data();
-    const twiml = `<Response><Say language="es-MX">Alerta de emergencia desde TaxiPro. Ubicación: ${coords.latitude}, ${coords.longitude}. ID viaje: ${tripId}, Origen: ${tripData?.origin.address}, Destino: ${tripData?.destination.address}.</Say></Response>`;
-    const callSid = await makeCall('911', twiml); // Número de emergencia
-    if (callSid) {
-      safetyLog.twilioCallSid = callSid;
-    }
-  }
+  // Calcular hash y construir el SafetyLog final
+  const baseForHash = { ...logPayload, recipients };
+  const hashPayload = crypto.createHash('sha256').update(JSON.stringify(baseForHash)).digest('hex');
+  const safetyLog: SafetyLog = { ...baseForHash, hashPayload };
 
-  safetyLog.recipients = recipients;
   const logRef = db.collection('trips').doc(tripId).collection('safety_logs').doc();
   await logRef.set(safetyLog);
-
 
   return { status: 'success', message: 'Evento de seguridad registrado.' };
 };

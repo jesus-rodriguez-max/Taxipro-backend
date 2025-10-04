@@ -4,7 +4,7 @@ exports.requestTripCallable = void 0;
 const firebase_functions_1 = require("firebase-functions");
 const firestore_1 = require("firebase-admin/firestore");
 const types_1 = require("../lib/types");
-const logging_js_1 = require("../lib/logging.js");
+const logging_1 = require("../lib/logging");
 const requestTripCallable = async (data, context) => {
     if (!context.auth) {
         throw new firebase_functions_1.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
@@ -74,7 +74,7 @@ const requestTripCallable = async (data, context) => {
         payment: { method: 'cash', isSettledToDriver: false }, // Método de pago por defecto
     };
     const tripRef = await firestore.collection('trips').add(newTrip);
-    await (0, logging_js_1.log)(tripRef.id, 'Trip requested by passenger', { passengerId, origin, destination, totalFare });
+    await (0, logging_1.log)(tripRef.id, 'Trip requested by passenger', { passengerId, origin, destination, totalFare });
     return { tripId: tripRef.id, totalFare };
 };
 exports.requestTripCallable = requestTripCallable;

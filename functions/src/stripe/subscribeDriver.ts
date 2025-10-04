@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import Stripe from 'stripe';
+import { STRIPE_SECRET, STRIPE_WEEKLY_PRICE_ID } from '../config';
 
 interface SubscribeDriverData {
   successUrl?: string;
@@ -23,8 +24,8 @@ export const subscribeDriverCallable = async (data: SubscribeDriverData, context
     throw new functions.https.HttpsError('failed-precondition', 'Debe aceptar el consentimiento de cobro (billingConsent) antes de suscribirse');
   }
 
-  const stripeSecret = functions.config().stripe?.secret;
-  const priceId = functions.config().stripe?.weekly_price_id; // Precio recurrente semanal (149 MXN)
+  const stripeSecret = STRIPE_SECRET;
+  const priceId = STRIPE_WEEKLY_PRICE_ID; // Precio recurrente semanal (149 MXN)
   if (!stripeSecret || !priceId) {
     throw new functions.https.HttpsError('failed-precondition', 'La configuración de Stripe no está completa');
   }

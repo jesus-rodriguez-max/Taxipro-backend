@@ -40,12 +40,13 @@ exports.createDriverAccountCallable = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const stripe_1 = __importDefault(require("stripe"));
+const config_1 = require("../config");
 const createDriverAccountCallable = async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Debe iniciar sesión.');
     }
     const driverId = context.auth.uid;
-    const stripeSecret = functions.config().stripe?.secret;
+    const stripeSecret = config_1.STRIPE_SECRET;
     if (!stripeSecret) {
         throw new functions.https.HttpsError('failed-precondition', 'Stripe secret no configurado.');
     }
@@ -73,8 +74,8 @@ const createDriverAccountCallable = async (data, context) => {
         stripeAccountId = account.id;
         await driverRef.update({ stripeAccountId });
     }
-    const refreshUrl = data?.refreshUrl || functions.config().stripe?.onboarding_refresh_url || 'https://taxipro.mx/stripe/onboarding/retry';
-    const returnUrl = data?.returnUrl || functions.config().stripe?.onboarding_return_url || 'https://taxipro.mx/stripe/onboarding/complete';
+    const refreshUrl = data?.refreshUrl || config_1.STRIPE_ONBOARDING_REFRESH_URL;
+    const returnUrl = data?.returnUrl || config_1.STRIPE_ONBOARDING_RETURN_URL;
     // Crear Account Link para onboarding/KYC
     const link = await stripe.accountLinks.create({
         account: stripeAccountId,

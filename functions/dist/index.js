@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.checkDisconnectedTripsScheduled = exports.cleanupSharedTripsScheduled = exports.submitRating = exports.updateSafetyConsents = exports.updateTrustedContacts = exports.createDriverSubscriptionSession = exports.updateShareLocationFn = exports.getShareStatusFn = exports.disableShare = exports.enableShare = exports.logSafetyEvent = exports.stopRecording = exports.startRecording = exports.suspendOverdueMemberships = exports.processMembershipPayments = exports.checkDriverSubscription = exports.subscribeDriver = exports.createDriverAccount = exports.stripeWebhook = exports.markAsNoShow = exports.cancelTrip = exports.driverArrived = exports.updateTripStatus = exports.acceptTrip = exports.requestTrip = exports.updateDriverOnboarding = void 0;
+exports.autoAssignDriver = exports.createPaymentIntent = exports.checkDisconnectedTripsScheduled = exports.cleanupSharedTripsScheduled = exports.cancelTripWithPenalty = exports.logSafetyEventV2 = exports.downloadTripAudio = exports.getAllTrips = exports.suspendDriver = exports.updateTariffs = exports.submitRating = exports.updateSafetyConsents = exports.updateTrustedContacts = exports.createDriverSubscriptionSession = exports.updateShareLocationFn = exports.getShareStatusFn = exports.disableShare = exports.enableShare = exports.stopRecording = exports.startRecording = exports.suspendOverdueMemberships = exports.processMembershipPayments = exports.checkDriverSubscription = exports.subscribeDriver = exports.createDriverAccount = exports.stripeWebhook = exports.requestTripOffline = exports.markAsNoShow = exports.cancelTrip = exports.driverArrived = exports.updateTripStatus = exports.acceptTrip = exports.requestTrip = exports.updateDriverOnboarding = void 0;
 const admin = __importStar(require("firebase-admin"));
 const firebase_functions_1 = require("firebase-functions"); // Añadido pubsub
 const requestTrip_1 = require("./trips/requestTrip");
@@ -57,6 +57,16 @@ const safetyProfile_1 = require("./safetyProfile");
 const submitRating_1 = require("./ratings/submitRating");
 const cleanupSharedTrips_1 = require("./sharedTrips/cleanupSharedTrips");
 const checkDisconnectedTrips_1 = require("./trips/checkDisconnectedTrips");
+const createPaymentIntent_1 = require("./payments/createPaymentIntent");
+const requestTripOffline_1 = require("./trips/requestTripOffline");
+const autoAssignDriver_1 = require("./trips/autoAssignDriver");
+Object.defineProperty(exports, "autoAssignDriver", { enumerable: true, get: function () { return autoAssignDriver_1.autoAssignDriver; } });
+const updateTariffs_1 = require("./fares/updateTariffs");
+const suspendDriver_1 = require("./admin/suspendDriver");
+const getAllTrips_1 = require("./admin/getAllTrips");
+const downloadTripAudio_1 = require("./admin/downloadTripAudio");
+const logSafetyEvent_1 = require("./safety/logSafetyEvent");
+const cancelTripWithPenalty_1 = require("./trips/cancelTripWithPenalty");
 // Initialize Firebase Admin
 admin.initializeApp();
 // Onboarding
@@ -68,6 +78,7 @@ exports.updateTripStatus = firebase_functions_1.https.onCall(updateTripStatus_1.
 exports.driverArrived = firebase_functions_1.https.onCall(driverArrived_1.driverArrivedCallable);
 exports.cancelTrip = firebase_functions_1.https.onCall(cancelTrip_1.cancelTripCallable);
 exports.markAsNoShow = firebase_functions_1.https.onCall(markAsNoShow_1.markAsNoShowCallable);
+exports.requestTripOffline = firebase_functions_1.https.onCall(requestTripOffline_1.requestTripOfflineCallable);
 // Stripe Connect endpoints (Express account onboarding and subscription)
 exports.createDriverAccount = firebase_functions_1.https.onCall(createDriverAccount_1.createDriverAccountCallable);
 exports.subscribeDriver = firebase_functions_1.https.onCall(subscribeDriver_1.subscribeDriverCallable);
@@ -78,7 +89,6 @@ exports.suspendOverdueMemberships = processMembershipPayments_1.suspendOverdueMe
 // Safety-related callables (already wrapped in v2 onCall in safety.ts)
 exports.startRecording = safety_1.startRecordingCallable;
 exports.stopRecording = safety_1.stopRecordingCallable;
-exports.logSafetyEvent = safety_1.logSafetyEventCallable;
 // Share-related functions
 exports.enableShare = safetyShare_1.enableShareCallable;
 exports.disableShare = safetyShare_1.disableShareCallable;
@@ -91,8 +101,20 @@ exports.updateTrustedContacts = firebase_functions_1.https.onCall(safetyProfile_
 exports.updateSafetyConsents = firebase_functions_1.https.onCall(safetyProfile_1.updateSafetyConsentsCallable);
 // Ratings functions
 exports.submitRating = firebase_functions_1.https.onCall(submitRating_1.submitRatingCallable);
+// Fares functions
+exports.updateTariffs = firebase_functions_1.https.onCall(updateTariffs_1.updateTariffsCallable);
+// Admin functions
+exports.suspendDriver = firebase_functions_1.https.onCall(suspendDriver_1.suspendDriverCallable);
+exports.getAllTrips = firebase_functions_1.https.onCall(getAllTrips_1.getAllTripsCallable);
+exports.downloadTripAudio = firebase_functions_1.https.onCall(downloadTripAudio_1.downloadTripAudioCallable);
+// Safety Shield
+exports.logSafetyEventV2 = firebase_functions_1.https.onCall(logSafetyEvent_1.logSafetyEventV2Callable);
+// Cancellations
+exports.cancelTripWithPenalty = firebase_functions_1.https.onCall(cancelTripWithPenalty_1.cancelTripWithPenaltyCallable);
 // Shared Trips functions
 exports.cleanupSharedTripsScheduled = cleanupSharedTrips_1.cleanupSharedTrips;
 // Disconnection handling functions
 exports.checkDisconnectedTripsScheduled = checkDisconnectedTrips_1.checkDisconnectedTrips;
+// Payment-related functions
+exports.createPaymentIntent = firebase_functions_1.https.onCall(createPaymentIntent_1.createPaymentIntentCallable);
 //# sourceMappingURL=index.js.map

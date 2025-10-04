@@ -1,13 +1,12 @@
-import * as functions from 'firebase-functions';
 import twilio from 'twilio';
+import { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER, TWILIO_PHONE_NUMBER } from '../config';
 
-const { account_sid, auth_token, whatsapp_number, phone_number } = functions.config().twilio;
-const client = twilio(account_sid, auth_token);
+const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 
 export const sendWhatsApp = async (to: string, body: string) => {
   try {
     const message = await client.messages.create({
-      from: `whatsapp:${whatsapp_number}`,
+      from: `whatsapp:${TWILIO_WHATSAPP_NUMBER}`,
       to: `whatsapp:${to}`,
       body,
     });
@@ -22,7 +21,7 @@ export const makeCall = async (to: string, twiml: string) => {
   try {
     const call = await client.calls.create({
       to,
-      from: phone_number,
+      from: TWILIO_PHONE_NUMBER,
       twiml,
     });
     return call.sid;

@@ -1,12 +1,8 @@
 import { https } from 'firebase-functions';
 import { Request, Response } from 'express';
 import Stripe from 'stripe';
-import { stripe, handleStripeWebhook } from './service';
-import * as functions from 'firebase-functions';
-
-
-// Obtiene el secreto del webhook de la configuración de entorno de Firebase.
-const webhookSecret = functions.config().stripe.webhook_secret;
+import { getStripe, handleStripeWebhook } from './service';
+import { STRIPE_WEBHOOK_SECRET } from '../config';
 
 /**
  * Endpoint HTTP para recibir y procesar webhooks de Stripe.
@@ -20,10 +16,15 @@ export const stripeWebhook = https.onRequest(async (req: Request, res: Response)
   }
 
   let event: Stripe.Event;
+  const webhookSecret = STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    res.status(500).send('Webhook Error: Missing webhook secret configuration');
+    return;
+  }
 
   try {
     // Verifica la firma para asegurar que la solicitud viene de Stripe
-    event = stripe.webhooks.constructEvent((req as any).rawBody, sig, webhookSecret);
+    event = getStripe().webhooks.constructEvent((req as any).rawBody, sig, webhookSecret);
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     res.status(400).send(`Webhook Error: ${errorMessage}`);

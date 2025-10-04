@@ -67,10 +67,11 @@ function collStore(key: string, isSub = false) {
   return (rootStore[key] ||= {});
 }
 
-function makeDocRef(collPath: string, id: string) {
+function makeDocRef(collPath: string, id: string, parent?: any) {
   const ref = {
     id,
     path: `${collPath}/${id}`,
+    parent: parent,
     async get() {
       if (typeof docGetMock.getMockImplementation === 'function' && docGetMock.getMockImplementation()) {
         return await docGetMock({ path: this.path });
@@ -81,11 +82,19 @@ function makeDocRef(collPath: string, id: string) {
     },
     async set(data: Doc, options?: { merge?: boolean }) {
       const col = collStore(collPath);
-      col[id] = options?.merge ? { ...(col[id] || {}), ...data } : { ...data };
+      col[id] = options?.merge ? { ...(col[id] || {}), ...data, path: collPath } : { ...data, path: collPath };
     },
     async update(updates: Doc) {
       const col = collStore(collPath);
       col[id] = applyFieldOps(col[id] || {}, updates);
+      if (this.parent) {
+        const parentColPath = this.parent.path.split('/').slice(0, -1).join('/');
+        const parentCol = collStore(parentColPath);
+        const parentDoc = parentCol[this.parent.id];
+        if (parentDoc) {
+          parentCol[this.parent.id] = { ...parentDoc, [collPath.split('/').pop()!]: col[id] };
+        }
+      }
     },
     async delete() {
       const col = collStore(collPath);
@@ -93,7 +102,7 @@ function makeDocRef(collPath: string, id: string) {
     },
     collection(sub: string) {
       const key = `${collPath}/${id}/${sub}`;
-      return makeCollection(key, true);
+      return makeCollection(key, true, ref);
     },
   };
   return ref;
@@ -125,11 +134,11 @@ function filterDocs(docs: [string, Doc][], filters: any[]): [string, Doc][] {
   );
 }
 
-function makeCollection(path: string, isSub = false) {
+function makeCollection(path: string, isSub = false, parent?: any) {
   const filters: any[] = [];
   let lim: number | undefined;
   const api: any = {
-    doc: (id: string) => makeDocRef(path, id),
+    doc: (id: string) => makeDocRef(path, id, parent),
     async add(data: Doc) {
       let id = `${idSeq++}`;
       if (path === 'trips') id = 'test-trip-id'; // helpful for some tests
@@ -168,6 +177,47 @@ export const mockFirestore = () => ({
     await updateFunction(transaction);
   },
   collection: (name: string) => makeCollection(name),
+  collectionGroup(collectionId: string) {
+    const filters: any[] = [];
+    let lim: number | undefined;
+    const api: any = {
+      where(field: string, op: string, value: any) { filters.push({ field, op, value }); return api; },
+      limit(n: number) { lim = n; return api; },
+      async get() {
+        const allDocs: [string, Doc][] = [];
+        for (const key in rootStore) {
+          if (key.endsWith(collectionId)) {
+            for (const docId in rootStore[key]) {
+              allDocs.push([docId, { ...rootStore[key][docId], path: key }]);
+            }
+          }
+        }
+        for (const key in subStore) {
+          const pathParts = key.split('/');
+          if (pathParts.length > 1 && pathParts[pathParts.length - 1] === collectionId) {
+            for (const docId in subStore[key]) {
+              allDocs.push([docId, { ...subStore[key][docId], path: key }]);
+            }
+          }
+        }
+
+        let rows = filters.length ? filterDocs(allDocs, filters) : allDocs;
+        if (typeof lim === 'number') rows = rows.slice(0, lim);
+        const docsArr = rows.map(([id, data]) => {
+          const pathParts = data.path.split('/');
+          const parent = makeDocRef(pathParts.slice(0, -2).join('/'), pathParts[pathParts.length - 2]);
+          return { id, data: () => ({ ...data }), ref: makeDocRef(data.path, id, parent) };
+        });
+        return {
+          empty: rows.length === 0,
+          size: rows.length,
+          docs: docsArr,
+          forEach: (cb: (doc: any) => void) => { docsArr.forEach(cb); },
+        };
+      },
+    };
+    return api;
+  },
   batch() {
     const ops: Array<() => Promise<void>> = [];
     return {

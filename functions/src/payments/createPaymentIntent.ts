@@ -1,6 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { stripe } from '../stripe/service';
+import { getStripe } from '../stripe/service';
 
 /**
  * Crea un PaymentIntent de Stripe para un viaje específico.
@@ -34,7 +34,7 @@ export const createPaymentIntentCallable = async (data: any, context: functions.
   const amount = Math.round(tripData.fare.total * 100); // Stripe requiere el monto en centavos
 
   try {
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await getStripe().paymentIntents.create({
       amount,
       currency: 'mxn',
       metadata: { tripId },

@@ -40,6 +40,7 @@ exports.createDriverSubscriptionSessionCallable = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const stripe_1 = __importDefault(require("stripe"));
+const config_1 = require("./config");
 // This callable creates a Stripe Checkout session for a driver to start their weekly subscription.
 // It assumes that the Stripe secret key and the price ID for the weekly subscription are set in
 // Firebase functions config under stripe.secret and stripe.weekly_price_id. Drivers must be
@@ -56,8 +57,8 @@ exports.createDriverSubscriptionSessionCallable = functions.https.onCall(async (
         throw new functions.https.HttpsError('failed-precondition', 'Solo los conductores pueden suscribirse');
     }
     // Load Stripe configuration
-    const stripeSecret = functions.config().stripe?.secret;
-    const priceId = functions.config().stripe?.weekly_price_id;
+    const stripeSecret = config_1.STRIPE_SECRET;
+    const priceId = config_1.STRIPE_WEEKLY_PRICE_ID;
     if (!stripeSecret || !priceId) {
         throw new functions.https.HttpsError('failed-precondition', 'La configuración de Stripe no está completa');
     }

@@ -36,9 +36,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.acceptTripCallable = void 0;
 const functions = __importStar(require("firebase-functions"));
 const firestore_1 = require("firebase-admin/firestore");
-const types_js_1 = require("../lib/types.js");
-const subscription_js_1 = require("../lib/subscription.js");
-const logging_js_1 = require("../lib/logging.js");
+const types_1 = require("../lib/types");
+const subscription_1 = require("../lib/subscription");
+const logging_1 = require("../lib/logging");
 /**
  * Callable that allows a driver to accept a pending trip.
  * @param data expects an object { tripId: string }
@@ -54,7 +54,7 @@ const acceptTripCallable = async (data, context) => {
         throw new functions.https.HttpsError('invalid-argument', 'Missing tripId.');
     }
     // Check if driver has an active subscription or free trial
-    const isActive = await (0, subscription_js_1.isDriverSubscriptionActive)(driverId);
+    const isActive = await (0, subscription_1.isDriverSubscriptionActive)(driverId);
     if (!isActive) {
         throw new functions.https.HttpsError('permission-denied', 'Driver does not have an active subscription.');
     }
@@ -66,22 +66,22 @@ const acceptTripCallable = async (data, context) => {
     }
     const trip = tripDoc.data();
     // Only allow accepting trips that are requested/pending
-    if (trip.status && trip.status !== types_js_1.TripStatus.PENDING && trip.status !== 'pending') {
+    if (trip.status && trip.status !== types_1.TripStatus.PENDING && trip.status !== 'pending') {
         throw new functions.https.HttpsError('failed-precondition', 'Trip cannot be accepted in its current status.');
     }
     // Assign driver and update status to assigned
     await tripRef.update({
         driverId,
-        status: types_js_1.TripStatus.ASSIGNED ?? 'assigned',
+        status: types_1.TripStatus.ASSIGNED ?? 'assigned',
         acceptedAt: firestore_1.FieldValue.serverTimestamp(),
     });
     // Log acceptance
-    await (0, logging_js_1.log)(tripId, `Driver ${driverId} accepted trip`, { driverId });
+    await (0, logging_1.log)(tripId, `Driver ${driverId} accepted trip`, { driverId });
     return {
         success: true,
         message: 'Trip accepted successfully',
         tripId,
-        status: types_js_1.TripStatus.ASSIGNED ?? 'assigned',
+        status: types_1.TripStatus.ASSIGNED ?? 'assigned',
     };
 };
 exports.acceptTripCallable = acceptTripCallable;

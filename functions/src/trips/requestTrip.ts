@@ -2,7 +2,7 @@ import { https } from 'firebase-functions';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { Trip, TripStatus, GeoPoint } from '../lib/types';
 
-import { log } from '../lib/logging.js';
+import { log } from '../lib/logging';
 
 export const requestTripCallable = async (data: any, context: https.CallableContext) => {
   if (!context.auth) {

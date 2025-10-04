@@ -11,13 +11,12 @@ export const autoAssignDriver = functions.firestore
   .document('trips/{tripId}')
   .onCreate(async (snap, context) => {
     const tripData = snap.data();
-
     if (tripData.status !== 'pending' || tripData.offline) {
       return null; // No procesar viajes que no estén pendientes o sean offline
     }
 
     const { origin } = tripData;
-    const center = [origin.latitude, origin.longitude];
+    const center: [number, number] = [origin.latitude, origin.longitude];
     const radiusInM = 50 * 1000; // 50 km
 
     const bounds = geofire.geohashQueryBounds(center, radiusInM);
@@ -39,7 +38,8 @@ export const autoAssignDriver = functions.firestore
         const lat = doc.data().latitude;
         const lng = doc.data().longitude;
 
-        const distanceInKm = geofire.distanceBetween([lat, lng], center);
+        const point: [number, number] = [lat, lng];
+        const distanceInKm = geofire.distanceBetween(point, center);
         const distanceInM = distanceInKm * 1000;
         if (distanceInM <= radiusInM) {
           matchingDocs.push({ ...doc.data(), id: doc.id, distance: distanceInM });

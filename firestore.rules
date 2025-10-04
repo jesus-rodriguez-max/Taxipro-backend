@@ -25,17 +25,22 @@ service cloud.firestore {
     // --- USERS ---
     match /users/{userId} {
       allow read: if (request.auth != null && request.auth.uid == userId) || hasAdminRole();
-      allow update: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId &&
+        request.resource.data.keys().hasOnly(['displayName', 'phoneNumber', 'email']);
       allow create: if request.auth != null
         && request.resource.data.acceptedTerms == true
-        && request.resource.data.acceptedPrivacy == true;
+        && request.resource.data.acceptedPrivacy == true
+        && request.resource.data.keys().hasAll(['displayName', 'phoneNumber', 'email', 'acceptedTerms', 'acceptedPrivacy', 'createdAt'])
+        && request.resource.data.size() == 6;
     }
 
     // --- DRIVERS ---
     match /drivers/{driverId} {
       // Creación del registro de chofer requiere consentimiento de cobro explícito
       allow create: if request.auth != null && request.auth.uid == driverId
-        && request.resource.data.status == 'pending';
+        && request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasAll(['status', 'createdAt', 'displayName', 'phoneNumber', 'email'])
+        && request.resource.data.size() == 5;
 
       // Lectura: chofer dueño, admin o compliance
       allow read: if request.auth != null && (request.auth.uid == driverId || hasAdminRole() || hasComplianceRole());
@@ -53,12 +58,6 @@ service cloud.firestore {
     }
 
     // --- TRIPS ---
-    // Perfiles de seguridad
-    match /safety_profiles/{userId} {
-      allow read, update: if request.auth.uid == userId;
-      allow create: if request.auth.uid == userId && request.resource.data.misuseScore == 0;
-    }
-
     match /trips/{tripId} {
       // Un conductor no puede marcar una penalización directamente
       allow update: if request.auth.uid == resource.data.driverId && !request.resource.data.penaltyCharged;
@@ -73,7 +72,8 @@ service cloud.firestore {
         && request.resource.data.status == 'pending';
       allow read: if request.auth != null
         && (resource.data.passengerId == request.auth.uid || resource.data.driverId == request.auth.uid);
-      allow update: if hasAdminRole() || hasComplianceRole();
+      allow update: if (hasAdminRole() || hasComplianceRole()) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']);
       
       match /logs/{logId} {
         allow read: if request.auth != null;
@@ -95,6 +95,7 @@ service cloud.firestore {
     // --- SAFETY PROFILES ---
     match /safety_profiles/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth.uid == userId && request.resource.data.misuseScore == 0;
     }
 
     // --- FARES ---

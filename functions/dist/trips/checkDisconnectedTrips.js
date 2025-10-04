@@ -89,7 +89,7 @@ async function checkDisconnectedTripsHandler() {
     }
 }
 exports.checkDisconnectedTrips = functions.pubsub
-    .schedule(`every 1 minute`)
+    .schedule(`* * * * *`)
     .onRun(async () => {
     await checkDisconnectedTripsHandler();
     return null;
