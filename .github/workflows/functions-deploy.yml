@@ -1,0 +1,45 @@
+name: Functions Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    tags:
+      - "v*"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Install deps (functions)
+        working-directory: functions
+        run: npm ci
+
+      # Optional: generate project-specific .env for deploy
+      # Requires repository secrets STRIPE_* to be set
+      - name: Prepare .env for project (taxipro-chofer)
+        working-directory: functions
+        run: |
+          cat > .env.taxipro-chofer <<EOF
+          STRIPE_SECRET=${{ secrets.STRIPE_SECRET }}
+          STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_WEEKLY_PRICE_ID=${{ secrets.STRIPE_WEEKLY_PRICE_ID }}
+          STRIPE_ONBOARDING_REFRESH_URL=${{ secrets.STRIPE_ONBOARDING_REFRESH_URL }}
+          STRIPE_ONBOARDING_RETURN_URL=${{ secrets.STRIPE_ONBOARDING_RETURN_URL }}
+          EOF
+
+      - name: Deploy Functions (taxipro-chofer)
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: firebase deploy --only functions --project taxipro-chofer
