@@ -1,5 +1,8 @@
 # TaxiPro Backend
 
+![Backend CI](https://github.com/jesus-rodriguez-max/Taxipro-backend/actions/workflows/backend-ci.yml/badge.svg)
+![Functions Deploy](https://github.com/jesus-rodriguez-max/Taxipro-backend/actions/workflows/functions-deploy.yml/badge.svg)
+
 Backend de TaxiPro basado en Firebase Functions (Node.js 20, TypeScript).
 
 Este repositorio contiene:
