@@ -22,25 +22,27 @@ Este documento describe el flujo técnico completo para integrar Stripe Connect 
 
 ---
 
-## Configuración requerida (Firebase Functions Config)
+## Configuración requerida (.env / dotenv)
 
-Definir las llaves y parámetros de Stripe en Functions:
+Define las llaves y parámetros de Stripe en archivos `.env` cargados por `functions/src/config.ts` (usa `dotenv`). Opciones:
 
-```bash
-firebase functions:config:set \
-  stripe.secret="sk_live_xxx" \
-  stripe.webhook_secret="whsec_xxx" \
-  stripe.weekly_price_id="price_weekly_149mxn" \
-  stripe.onboarding_refresh_url="https://tu-dominio.com/stripe/onboarding/retry" \
-  stripe.onboarding_return_url="https://tu-dominio.com/stripe/onboarding/complete"
+- `functions/.env` para desarrollo local.
+- `functions/.env.<projectId>` para cada proyecto (ej.: `functions/.env.taxipro-chofer`).
+- Variables de entorno en tu pipeline CI/CD (exportadas al proceso de build/deploy).
 
-firebase deploy --only functions
+Variables comunes:
+
+```env
+STRIPE_SECRET=sk_live_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+STRIPE_WEEKLY_PRICE_ID=price_weekly_149mxn
+STRIPE_ONBOARDING_REFRESH_URL=https://tu-dominio.com/stripe/onboarding/retry
+STRIPE_ONBOARDING_RETURN_URL=https://tu-dominio.com/stripe/onboarding/complete
 ```
 
-- `stripe.secret`: Clave secreta de Stripe.
-- `stripe.webhook_secret`: Secreto del endpoint de webhook.
-- `stripe.weekly_price_id`: ID del precio semanal ($149 MXN). Debe estar asociado al producto "Membresía Chofer".
-- `stripe.onboarding_*_url`: URLs para el flujo de onboarding de Connect.
+Nota:
+- Evita `functions.config()` (API deprecada en marzo 2026). El proyecto ya usa `.env` y `config.ts`.
+- El deploy ejecuta build previo (predeploy) y carga `.env` automáticamente.
 
 ---
 
@@ -224,8 +226,7 @@ stripe trigger invoice.payment_failed
 stripe trigger account.updated
 stripe trigger customer.subscription.deleted
 ```
-
-Asegúrate de configurar `STRIPE_WEBHOOK_SECRET` en `functions.config().stripe.webhook_secret` si usas validación de firma.
+Si validas firma de webhooks, coloca `STRIPE_WEBHOOK_SECRET` en tu `.env` (o en variables de entorno del CI) para que `functions/src/config.ts` lo exponga a la función `stripeWebhook`.
 
 ---
 

@@ -33,28 +33,27 @@ Implementar la membresía semanal para conductores de TaxiPro ($149 MXN, semanal
 
 ---
 
-## 🔑 Configuración y Claves
+## 🔑 Configuración y Claves (.env / dotenv)
 
-Variables en Firebase Functions Config (`functions.config().stripe`):
+Usa variables de entorno cargadas por `functions/src/config.ts` (que hace `dotenv.config()`). Opciones:
 
-- `stripe.secret`: Clave secreta de Stripe (sk_live o sk_test).
-- `stripe.webhook_secret`: Secreto del endpoint de Webhook (whsec…).
-- `stripe.weekly_price_id`: ID del Price semanal en MXN con trial de 60 días (p. ej., `price_XXXX`).
-- `stripe.onboarding_refresh_url`: URL para reintentar onboarding.
-- `stripe.onboarding_return_url`: URL de retorno al completar onboarding.
+- `functions/.env` para desarrollo local.
+- `functions/.env.<projectId>` por proyecto (ej.: `functions/.env.taxipro-chofer`).
+- Variables de entorno inyectadas por tu pipeline CI/CD.
 
-Ejemplo (CLI):
+Variables comunes (ejemplo):
 
-```bash
-firebase functions:config:set \
-  stripe.secret="sk_live_xxx" \
-  stripe.webhook_secret="whsec_xxx" \
-  stripe.weekly_price_id="price_weekly_149mxn" \
-  stripe.onboarding_refresh_url="https://tu-dominio.com/stripe/onboarding/retry" \
-  stripe.onboarding_return_url="https://tu-dominio.com/stripe/onboarding/complete"
+```env
+STRIPE_SECRET=sk_live_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+STRIPE_WEEKLY_PRICE_ID=price_weekly_149mxn
+STRIPE_ONBOARDING_REFRESH_URL=https://tu-dominio.com/stripe/onboarding/retry
+STRIPE_ONBOARDING_RETURN_URL=https://tu-dominio.com/stripe/onboarding/complete
 ```
 
-Local (emulador): crear `functions/.runtimeconfig.json` con lo anterior si se requiere.
+Notas:
+- Evita `functions.config()` (API deprecada en marzo 2026) y no uses `.runtimeconfig.json`.
+- El deploy ya ejecuta un predeploy (build) y el CLI carga `.env`.
 
 Creación de Producto/Price (Stripe CLI):
 

@@ -8,6 +8,7 @@ import { cancelTripCallable } from './trips/cancelTrip';
 import { markAsNoShowCallable } from './trips/markAsNoShow';
 import { stripeWebhook } from './stripe/webhook';
 import { createDriverAccountCallable } from './stripe/createDriverAccount';
+import { createStripeAccountLink as createStripeAccountLinkCallable } from './stripe/accountLink';
 import { subscribeDriverCallable } from './stripe/subscribeDriver';
 import { checkDriverSubscriptionCallable } from './stripe/checkDriverSubscription';
 import { updateDriverOnboardingCallable } from './driverOnboarding';
@@ -66,6 +67,7 @@ export { stripeWebhook };
 export const createDriverAccount = https.onCall(createDriverAccountCallable);
 export const subscribeDriver = https.onCall(subscribeDriverCallable);
 export const checkDriverSubscription = https.onCall(checkDriverSubscriptionCallable);
+export const createStripeAccountLink = https.onCall(createStripeAccountLinkCallable);
 
 // Scheduled functions
 export const processMembershipPayments = processMembershipPaymentsFunction; // Añadido
@@ -83,6 +85,7 @@ export const updateShareLocationFn = updateShareLocation;
 
 // Stripe subscription for drivers (already onCall)
 export const createDriverSubscriptionSession = createDriverSubscriptionSessionCallable;
+export const createCheckoutSession = createDriverSubscriptionSessionCallable;
 
 // Safety profile functions
 export const updateTrustedContacts = https.onCall(updateTrustedContactsCallable);
@@ -116,3 +119,4 @@ export const createPaymentIntent = https.onCall(createPaymentIntentCallable);
 
 // Trip triggers
 export { autoAssignDriver };
+

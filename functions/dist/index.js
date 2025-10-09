@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.autoAssignDriver = exports.createPaymentIntent = exports.checkDisconnectedTripsScheduled = exports.cleanupSharedTripsScheduled = exports.cancelTripWithPenalty = exports.logSafetyEventV2 = exports.downloadTripAudio = exports.getAllTrips = exports.suspendDriver = exports.updateTariffs = exports.submitRating = exports.updateSafetyConsents = exports.updateTrustedContacts = exports.createDriverSubscriptionSession = exports.updateShareLocationFn = exports.getShareStatusFn = exports.disableShare = exports.enableShare = exports.stopRecording = exports.startRecording = exports.suspendOverdueMemberships = exports.processMembershipPayments = exports.checkDriverSubscription = exports.subscribeDriver = exports.createDriverAccount = exports.stripeWebhook = exports.requestTripOffline = exports.markAsNoShow = exports.cancelTrip = exports.driverArrived = exports.updateTripStatus = exports.acceptTrip = exports.requestTrip = exports.updateDriverOnboarding = void 0;
+exports.autoAssignDriver = exports.createPaymentIntent = exports.checkDisconnectedTripsScheduled = exports.cleanupSharedTripsScheduled = exports.cancelTripWithPenalty = exports.logSafetyEventV2 = exports.downloadTripAudio = exports.getAllTrips = exports.suspendDriver = exports.updateTariffs = exports.submitRating = exports.updateSafetyConsents = exports.updateTrustedContacts = exports.createCheckoutSession = exports.createDriverSubscriptionSession = exports.updateShareLocationFn = exports.getShareStatusFn = exports.disableShare = exports.enableShare = exports.stopRecording = exports.startRecording = exports.suspendOverdueMemberships = exports.processMembershipPayments = exports.createStripeAccountLink = exports.checkDriverSubscription = exports.subscribeDriver = exports.createDriverAccount = exports.stripeWebhook = exports.requestTripOffline = exports.markAsNoShow = exports.cancelTrip = exports.driverArrived = exports.updateTripStatus = exports.acceptTrip = exports.requestTrip = exports.updateDriverOnboarding = void 0;
 const admin = __importStar(require("firebase-admin"));
 const firebase_functions_1 = require("firebase-functions"); // Añadido pubsub
 const requestTrip_1 = require("./trips/requestTrip");
@@ -45,6 +45,7 @@ const markAsNoShow_1 = require("./trips/markAsNoShow");
 const webhook_1 = require("./stripe/webhook");
 Object.defineProperty(exports, "stripeWebhook", { enumerable: true, get: function () { return webhook_1.stripeWebhook; } });
 const createDriverAccount_1 = require("./stripe/createDriverAccount");
+const accountLink_1 = require("./stripe/accountLink");
 const subscribeDriver_1 = require("./stripe/subscribeDriver");
 const checkDriverSubscription_1 = require("./stripe/checkDriverSubscription");
 const driverOnboarding_1 = require("./driverOnboarding");
@@ -83,6 +84,7 @@ exports.requestTripOffline = firebase_functions_1.https.onCall(requestTripOfflin
 exports.createDriverAccount = firebase_functions_1.https.onCall(createDriverAccount_1.createDriverAccountCallable);
 exports.subscribeDriver = firebase_functions_1.https.onCall(subscribeDriver_1.subscribeDriverCallable);
 exports.checkDriverSubscription = firebase_functions_1.https.onCall(checkDriverSubscription_1.checkDriverSubscriptionCallable);
+exports.createStripeAccountLink = firebase_functions_1.https.onCall(accountLink_1.createStripeAccountLink);
 // Scheduled functions
 exports.processMembershipPayments = processMembershipPayments_1.processMembershipPayments; // Añadido
 exports.suspendOverdueMemberships = processMembershipPayments_1.suspendOverdueMemberships; // Añadido
@@ -96,6 +98,7 @@ exports.getShareStatusFn = safetyShare_1.getShareStatus;
 exports.updateShareLocationFn = updateShareLocation_1.updateShareLocation;
 // Stripe subscription for drivers (already onCall)
 exports.createDriverSubscriptionSession = createDriverSubscription_1.createDriverSubscriptionSessionCallable;
+exports.createCheckoutSession = createDriverSubscription_1.createDriverSubscriptionSessionCallable;
 // Safety profile functions
 exports.updateTrustedContacts = firebase_functions_1.https.onCall(safetyProfile_1.updateTrustedContactsCallable);
 exports.updateSafetyConsents = firebase_functions_1.https.onCall(safetyProfile_1.updateSafetyConsentsCallable);
