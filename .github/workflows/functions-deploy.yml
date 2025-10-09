@@ -2,8 +2,18 @@ name: Functions Deploy
 
 on:
   workflow_dispatch:
+    inputs:
+      project:
+        description: "Target Firebase project to deploy"
+        required: false
+        type: choice
+        options:
+          - taxipro-chofer
+          - taxipro-usuariox
+          - both
+        default: taxipro-chofer
   push:
-    branches: ["main"]
+    branches: ["**"]
     tags:
       - "v*"
 
@@ -44,9 +54,15 @@ jobs:
       - name: Run Firestore rules tests
         run: npm run test:rules:run --silent
 
-  deploy:
+  deploy-chofer:
     needs: [test]
     runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' &&
+        (github.event.inputs.project == 'taxipro-chofer' || github.event.inputs.project == 'both') ||
+      (github.event_name == 'push' && (
+        startsWith(github.ref, 'refs/tags/v') || github.ref_name == 'main'
+      ))
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -69,14 +85,55 @@ jobs:
         working-directory: functions
         run: |
           cat > .env.taxipro-chofer <<EOF
-          STRIPE_SECRET=${{ secrets.STRIPE_SECRET }}
-          STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
-          STRIPE_WEEKLY_PRICE_ID=${{ secrets.STRIPE_WEEKLY_PRICE_ID }}
-          STRIPE_ONBOARDING_REFRESH_URL=${{ secrets.STRIPE_ONBOARDING_REFRESH_URL }}
-          STRIPE_ONBOARDING_RETURN_URL=${{ secrets.STRIPE_ONBOARDING_RETURN_URL }}
+          STRIPE_SECRET=${{ secrets.STRIPE_SECRET_CHOFER || secrets.STRIPE_SECRET }}
+          STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_CHOFER || secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_WEEKLY_PRICE_ID=${{ secrets.STRIPE_WEEKLY_PRICE_ID_CHOFER || secrets.STRIPE_WEEKLY_PRICE_ID }}
+          STRIPE_ONBOARDING_REFRESH_URL=${{ secrets.STRIPE_ONBOARDING_REFRESH_URL_CHOFER || secrets.STRIPE_ONBOARDING_REFRESH_URL }}
+          STRIPE_ONBOARDING_RETURN_URL=${{ secrets.STRIPE_ONBOARDING_RETURN_URL_CHOFER || secrets.STRIPE_ONBOARDING_RETURN_URL }}
           EOF
 
       - name: Deploy Functions (taxipro-chofer)
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: firebase deploy --only functions --project taxipro-chofer
+
+  deploy-usuariox:
+    needs: [test]
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' &&
+        (github.event.inputs.project == 'taxipro-usuariox' || github.event.inputs.project == 'both') ||
+      (github.event_name == 'push' && (
+        startsWith(github.ref, 'refs/tags/v') || contains(github.ref_name, 'usuario') || contains(github.ref_name, 'usuariox')
+      ))
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Install deps (functions)
+        working-directory: functions
+        run: npm ci
+
+      - name: Prepare .env for project (taxipro-usuariox)
+        working-directory: functions
+        run: |
+          cat > .env.taxipro-usuariox <<EOF
+          STRIPE_SECRET=${{ secrets.STRIPE_SECRET_USUARIOX || secrets.STRIPE_SECRET }}
+          STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_USUARIOX || secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_WEEKLY_PRICE_ID=${{ secrets.STRIPE_WEEKLY_PRICE_ID_USUARIOX || secrets.STRIPE_WEEKLY_PRICE_ID }}
+          STRIPE_ONBOARDING_REFRESH_URL=${{ secrets.STRIPE_ONBOARDING_REFRESH_URL_USUARIOX || secrets.STRIPE_ONBOARDING_REFRESH_URL }}
+          STRIPE_ONBOARDING_RETURN_URL=${{ secrets.STRIPE_ONBOARDING_RETURN_URL_USUARIOX || secrets.STRIPE_ONBOARDING_RETURN_URL }}
+          EOF
+
+      - name: Deploy Functions (taxipro-usuariox)
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: firebase deploy --only functions --project taxipro-usuariox
