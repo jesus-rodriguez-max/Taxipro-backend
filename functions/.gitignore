@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Local env and runtime config
+.env
+.env.*
+.runtimeconfig.json
+
+# Misc
+.DS_Store
+.npmrc
+*.log
