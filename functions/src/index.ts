@@ -7,6 +7,9 @@ import { driverArrivedCallable } from './trips/driverArrived';
 import { cancelTripCallable } from './trips/cancelTrip';
 import { markAsNoShowCallable } from './trips/markAsNoShow';
 import { stripeWebhook } from './stripe/webhook';
+import { stripeWebhookV2 } from './stripe/webhookV2';
+import { finalizeDriverSubscriptionFromSessionCallable } from './stripe/finalizeSubscriptionFromSession';
+import { getDriverStatusAdminCallable } from './stripe/getDriverStatusAdmin';
 import { createDriverAccountCallable } from './stripe/createDriverAccount';
 import { createStripeAccountLink as createStripeAccountLinkCallable } from './stripe/accountLink';
 import { subscribeDriverCallable } from './stripe/subscribeDriver';
@@ -28,6 +31,7 @@ import {
 } from './safetyShare';
 import { updateShareLocation } from './updateShareLocation';
 import { createDriverSubscriptionSessionCallable } from './createDriverSubscription';
+import { syncDriverSubscriptionStatusCallable } from './stripe/syncSubscription';
 import {
   updateTrustedContactsCallable,
   updateSafetyConsentsCallable,
@@ -62,6 +66,7 @@ export const requestTripOffline = https.onCall(requestTripOfflineCallable);
 
 // Stripe webhook (HTTP request)
 export { stripeWebhook };
+export { stripeWebhookV2 };
 
 // Stripe Connect endpoints (Express account onboarding and subscription)
 export const createDriverAccount = https.onCall(createDriverAccountCallable);
@@ -86,6 +91,9 @@ export const updateShareLocationFn = updateShareLocation;
 // Stripe subscription for drivers (already onCall)
 export const createDriverSubscriptionSession = createDriverSubscriptionSessionCallable;
 export const createCheckoutSession = createDriverSubscriptionSessionCallable;
+export const finalizeDriverSubscriptionFromSession = https.onCall(finalizeDriverSubscriptionFromSessionCallable);
+export const syncDriverSubscriptionStatus = https.onCall(syncDriverSubscriptionStatusCallable);
+export const getDriverStatusAdmin = https.onCall(getDriverStatusAdminCallable);
 
 // Safety profile functions
 export const updateTrustedContacts = https.onCall(updateTrustedContactsCallable);

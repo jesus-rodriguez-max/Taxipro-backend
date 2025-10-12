@@ -1,12 +1,25 @@
-import * as dotenv from 'dotenv';
-dotenv.config();
+import * as functions from 'firebase-functions';
 
-// Stripe
-export const STRIPE_SECRET = process.env.STRIPE_SECRET || process.env.STRIPE_SECRET_KEY || '';
-export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
-export const STRIPE_WEEKLY_PRICE_ID = process.env.STRIPE_WEEKLY_PRICE_ID || '';
-export const STRIPE_ONBOARDING_REFRESH_URL = process.env.STRIPE_ONBOARDING_REFRESH_URL || 'https://taxipro.mx/stripe/onboarding/retry';
-export const STRIPE_ONBOARDING_RETURN_URL = process.env.STRIPE_ONBOARDING_RETURN_URL || 'https://taxipro.mx/stripe/onboarding/complete';
+// Prefer Firebase Functions config() over process.env, but support env as fallback (for local dev)
+const stripeCfg = (functions.config()?.stripe as any) || {};
+
+const envSecret = (process.env.STRIPE_SECRET || process.env.STRIPE_SECRET_KEY || '').trim();
+const cfgSecret = (stripeCfg.secret || '').trim();
+export const STRIPE_SECRET = (cfgSecret || envSecret);
+export const STRIPE_SECRET_SOURCE = cfgSecret ? 'functions_config' : (envSecret ? 'env' : 'none');
+
+const envWebhook = (process.env.STRIPE_WEBHOOK_SECRET || '').trim();
+const cfgWebhook = (stripeCfg.webhook_secret || '').trim();
+export const STRIPE_WEBHOOK_SECRET = (cfgWebhook || envWebhook);
+
+const envWeeklyPrice = (process.env.STRIPE_WEEKLY_PRICE_ID || '').trim();
+const cfgWeeklyPrice = (stripeCfg.weekly_price_id || '').trim();
+export const STRIPE_WEEKLY_PRICE_ID = (cfgWeeklyPrice || envWeeklyPrice);
+
+export const STRIPE_ONBOARDING_REFRESH_URL =
+  process.env.STRIPE_ONBOARDING_REFRESH_URL || stripeCfg.onboarding_refresh_url || 'https://taxipro.mx/stripe/onboarding/retry';
+export const STRIPE_ONBOARDING_RETURN_URL =
+  process.env.STRIPE_ONBOARDING_RETURN_URL || stripeCfg.onboarding_return_url || 'https://taxipro.mx/stripe/onboarding/complete';
 export const STRIPE_SUBSCRIPTION_DAYS = Number(process.env.STRIPE_SUBSCRIPTION_DAYS || 7);
 
 // Twilio
