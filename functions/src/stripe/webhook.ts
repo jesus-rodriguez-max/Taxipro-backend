@@ -1,6 +1,5 @@
 import * as functions from "firebase-functions";
 import Stripe from "stripe";
-import { onRequest } from "firebase-functions/v2/https";
 
 // Inicializa Stripe con la clave secreta desde las variables de entorno
 const stripe = new Stripe(functions.config().stripe.secret, {
@@ -10,9 +9,9 @@ const stripe = new Stripe(functions.config().stripe.secret, {
 /**
  * Webhook de Stripe: recibe notificaciones de pagos y suscripciones
  */
-export const stripeWebhook = onRequest(
-  { region: "us-central1" },
-  async (req, res) => {
+export const stripeWebhook = functions
+  .region("us-central1")
+  .https.onRequest(async (req, res) => {
     const sig = req.headers["stripe-signature"] as string;
 
     if (!sig) {
@@ -68,5 +67,4 @@ export const stripeWebhook = onRequest(
 
     // Stripe necesita recibir 200 para confirmar recepción
     res.status(200).json({ received: true });
-  }
-);
+  });

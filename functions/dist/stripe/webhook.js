@@ -39,7 +39,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.stripeWebhook = void 0;
 const functions = __importStar(require("firebase-functions"));
 const stripe_1 = __importDefault(require("stripe"));
-const https_1 = require("firebase-functions/v2/https");
 // Inicializa Stripe con la clave secreta desde las variables de entorno
 const stripe = new stripe_1.default(functions.config().stripe.secret, {
     apiVersion: "2024-06-20",
@@ -47,7 +46,9 @@ const stripe = new stripe_1.default(functions.config().stripe.secret, {
 /**
  * Webhook de Stripe: recibe notificaciones de pagos y suscripciones
  */
-exports.stripeWebhook = (0, https_1.onRequest)({ region: "us-central1" }, async (req, res) => {
+exports.stripeWebhook = functions
+    .region("us-central1")
+    .https.onRequest(async (req, res) => {
     const sig = req.headers["stripe-signature"];
     if (!sig) {
         console.error("❌ No se encontró la firma de Stripe");
