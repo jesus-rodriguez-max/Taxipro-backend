@@ -22,7 +22,7 @@ export const createStripeAccountLink = async (data: any, context: functions.http
       throw new functions.https.HttpsError('failed-precondition', 'Stripe secret no configurado.');
     }
     const stripe = new Stripe(stripeSecret, {
-      apiVersion: '2024-04-10',
+      apiVersion: '2024-06-20' as any,
     });
 
     const driverDoc = await driverRef.get();

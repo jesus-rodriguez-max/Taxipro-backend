@@ -10,7 +10,7 @@ let stripeClient: Stripe | null = null;
 export const getStripe = (): Stripe => {
   if (!stripeClient) {
     stripeClient = new Stripe(STRIPE_SECRET, {
-      apiVersion: '2024-04-10', // Usa una versión de API fija y soportada
+      apiVersion: '2024-06-20' as any, // Usa una versión de API fija y soportada
       typescript: true,
     });
   }

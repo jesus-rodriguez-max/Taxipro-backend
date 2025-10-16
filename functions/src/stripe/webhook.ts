@@ -1,39 +1,72 @@
-import { https } from 'firebase-functions';
-import { Request, Response } from 'express';
-import Stripe from 'stripe';
-import { getStripe, handleStripeWebhook } from './service';
-import { STRIPE_WEBHOOK_SECRET } from '../config';
+import * as functions from "firebase-functions";
+import Stripe from "stripe";
+import { onRequest } from "firebase-functions/v2/https";
+
+// Inicializa Stripe con la clave secreta desde las variables de entorno
+const stripe = new Stripe(functions.config().stripe.secret, {
+  apiVersion: "2024-06-20" as any,
+});
 
 /**
- * Endpoint HTTP para recibir y procesar webhooks de Stripe.
+ * Webhook de Stripe: recibe notificaciones de pagos y suscripciones
  */
-export const stripeWebhook = https.onRequest(async (req: Request, res: Response) => {
-  const sig = req.headers['stripe-signature'] as string;
+export const stripeWebhook = onRequest(
+  { region: "us-central1" },
+  async (req, res) => {
+    const sig = req.headers["stripe-signature"] as string;
 
-  if (!sig) {
-    res.status(400).send('Webhook Error: No signature found');
-    return;
+    if (!sig) {
+      console.error("❌ No se encontró la firma de Stripe");
+      res.status(400).send("Webhook Error: No signature found");
+      return;
+    }
+
+    const webhookSecret = functions.config().stripe.webhook_secret;
+    if (!webhookSecret) {
+      console.error("❌ Falta stripe.webhook_secret en las configuraciones de Functions");
+      res.status(500).send("Webhook Error: Missing webhook secret configuration");
+      return;
+    }
+
+    let event: Stripe.Event;
+    try {
+      event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
+    } catch (err: any) {
+      console.error("❌ Error verificando la firma del webhook:", err.message);
+      res.status(400).send(`Webhook Error: ${err.message}`);
+      return;
+    }
+
+    // Maneja los tipos de eventos de Stripe
+    try {
+      switch (event.type) {
+        case "invoice.payment_succeeded":
+          console.log("✅ Pago exitoso:", event.data.object["id"]);
+          break;
+
+        case "customer.subscription.created":
+          console.log("🟢 Nueva suscripción creada:", event.data.object["id"]);
+          break;
+
+        case "customer.subscription.updated":
+          console.log("🔄 Suscripción actualizada:", event.data.object["id"]);
+          break;
+
+        case "customer.subscription.deleted":
+          console.log("🚫 Suscripción cancelada:", event.data.object["id"]);
+          break;
+
+        default:
+          console.log(`ℹ️ Evento recibido sin manejar: ${event.type}`);
+          break;
+      }
+    } catch (error) {
+      console.error("💥 Error procesando evento Stripe:", error);
+      res.status(500).send("Error interno procesando evento");
+      return;
+    }
+
+    // Stripe necesita recibir 200 para confirmar recepción
+    res.status(200).json({ received: true });
   }
-
-  let event: Stripe.Event;
-  const webhookSecret = STRIPE_WEBHOOK_SECRET;
-  if (!webhookSecret) {
-    res.status(500).send('Webhook Error: Missing webhook secret configuration');
-    return;
-  }
-
-  try {
-    // Verifica la firma para asegurar que la solicitud viene de Stripe
-    event = getStripe().webhooks.constructEvent((req as any).rawBody, sig, webhookSecret);
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    res.status(400).send(`Webhook Error: ${errorMessage}`);
-    return;
-  }
-
-  // Llama al manejador de eventos para procesar el evento
-  await handleStripeWebhook(event);
-
-  // Responde a Stripe que el evento fue recibido correctamente
-  res.status(200).json({ received: true });
-});
+);

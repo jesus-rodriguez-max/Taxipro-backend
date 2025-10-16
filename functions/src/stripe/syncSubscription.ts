@@ -13,7 +13,7 @@ export const syncDriverSubscriptionStatusCallable = async (_data: unknown, conte
   if (!stripeSecret) {
     throw new functions.https.HttpsError('failed-precondition', 'Stripe secret no configurado.');
   }
-  const stripe = new Stripe(stripeSecret, { apiVersion: '2024-04-10' });
+  const stripe = new Stripe(stripeSecret, { apiVersion: '2024-06-20' as any });
 
   try {
     // Obtener la suscripción más reciente del cliente asociado al driver
@@ -27,7 +27,8 @@ export const syncDriverSubscriptionStatusCallable = async (_data: unknown, conte
 
     if (customerId) {
       const subs = await stripe.subscriptions.list({ limit: 10, status: 'all', customer: customerId });
-      const latest = subs.data.sort((a, b) => (b.created || 0) - (a.created || 0))[0];
+      const latest = subs.data
+        .sort((a, b) => (b.created || 0) - (a.created || 0))[0] as (Stripe.Subscription & { current_period_end?: number }) | undefined;
       if (latest) {
         subscriptionId = latest.id;
         status = latest.status;
@@ -45,7 +46,7 @@ export const syncDriverSubscriptionStatusCallable = async (_data: unknown, conte
         const latest = ownSessions.sort((a, b) => (b.created || 0) - (a.created || 0))[0];
         subscriptionId = typeof latest.subscription === 'string' ? latest.subscription : undefined;
         if (subscriptionId) {
-          const sub = await stripe.subscriptions.retrieve(subscriptionId);
+          const sub = (await stripe.subscriptions.retrieve(subscriptionId)) as Stripe.Subscription & { current_period_end?: number };
           status = sub.status;
           if (sub.current_period_end) {
             expiresAt = new Date(sub.current_period_end * 1000);

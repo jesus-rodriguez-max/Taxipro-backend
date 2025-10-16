@@ -22,7 +22,7 @@ export const finalizeDriverSubscriptionFromSessionCallable = async (data: Finali
     throw new functions.https.HttpsError('failed-precondition', 'Stripe secret no configurado.');
   }
 
-  const stripe = new Stripe(stripeSecret, { apiVersion: '2024-04-10' });
+  const stripe = new Stripe(stripeSecret, { apiVersion: '2024-06-20' as any });
 
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
@@ -50,7 +50,7 @@ export const finalizeDriverSubscriptionFromSessionCallable = async (data: Finali
     let expiresAt: Date | null = null;
     if (subscriptionId) {
       try {
-        const sub = await stripe.subscriptions.retrieve(subscriptionId);
+        const sub = (await stripe.subscriptions.retrieve(subscriptionId)) as Stripe.Subscription & { current_period_end?: number };
         if (sub.current_period_end) {
           expiresAt = new Date(sub.current_period_end * 1000);
         }

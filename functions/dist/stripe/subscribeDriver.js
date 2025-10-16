@@ -60,7 +60,7 @@ const subscribeDriverCallable = async (data, context) => {
     if (!stripeSecret || !priceId) {
         throw new functions.https.HttpsError('failed-precondition', 'La configuración de Stripe no está completa');
     }
-    const stripe = new stripe_1.default(stripeSecret, { apiVersion: '2024-04-10' });
+    const stripe = new stripe_1.default(stripeSecret, { apiVersion: '2024-06-20' });
     // Crear o reutilizar Customer de Stripe
     let stripeCustomerId = driver?.stripeCustomerId;
     if (!stripeCustomerId) {

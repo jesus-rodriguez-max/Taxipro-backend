@@ -20,7 +20,7 @@ export const createDriverAccountCallable = async (data: CreateDriverAccountData,
     throw new functions.https.HttpsError('failed-precondition', 'Stripe secret no configurado.');
   }
 
-  const stripe = new Stripe(stripeSecret, { apiVersion: '2024-04-10' });
+  const stripe = new Stripe(stripeSecret, { apiVersion: '2024-06-20' as any });
 
   const driverRef = admin.firestore().collection('drivers').doc(driverId);
   const snap = await driverRef.get();

@@ -48,7 +48,7 @@ let stripeClient = null;
 const getStripe = () => {
     if (!stripeClient) {
         stripeClient = new stripe_1.default(config_1.STRIPE_SECRET, {
-            apiVersion: '2024-04-10', // Usa una versión de API fija y soportada
+            apiVersion: '2024-06-20', // Usa una versión de API fija y soportada
             typescript: true,
         });
     }
