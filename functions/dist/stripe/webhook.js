@@ -66,7 +66,13 @@ const stripeWebhookHandler = async (req, res) => {
     }
     let event;
     try {
+        try {
+            const len = Buffer.isBuffer(req.body) ? req.body.length : -1;
+            console.log("[stripeWebhook] Payload recibido bytes:", len);
+        }
+        catch { }
         event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+        console.log("[stripeWebhook] constructEvent OK:", event.type);
     }
     catch (err) {
         console.error("❌ Error verificando la firma del webhook:", err?.message || err);
@@ -76,6 +82,7 @@ const stripeWebhookHandler = async (req, res) => {
     }
     // Maneja los tipos de eventos de Stripe
     try {
+        console.log("Evento recibido:", event.type);
         switch (event.type) {
             case "invoice.payment_succeeded":
                 console.log("✅ Pago exitoso:", event.data.object["id"]);
