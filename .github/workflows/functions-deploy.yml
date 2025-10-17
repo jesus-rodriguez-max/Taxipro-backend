@@ -29,10 +29,11 @@ jobs:
         with:
           node-version: 20
 
-      - name: Write Firebase service account key
-        run: |
-          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > "${RUNNER_TEMP}/firebase-key.json"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=${RUNNER_TEMP}/firebase-key.json" >> $GITHUB_ENV
+      - name: Authenticate with Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          export_environment_variables: true
 
       - name: Cache Firebase Emulators
         uses: actions/cache@v3
@@ -83,18 +84,30 @@ jobs:
         with:
           node-version: 20
 
-      - name: Authenticate to Google Cloud
+      - name: Authenticate with Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           export_environment_variables: true
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
-      - name: Install deps (functions)
-        working-directory: functions
-        run: npm ci
+      - name: Install deps (functions) if needed
+        run: |
+          if [ -f ./functions/package-lock.json ]; then
+            npm --prefix ./functions ci
+          else
+            npm --prefix ./functions install
+          fi
+
+      - name: Build (functions) if script exists
+        run: |
+          if node -e "const p=require('./functions/package.json'); process.exit(!(p.scripts && p.scripts.build));"; then
+            npm --prefix ./functions run build
+          else
+            echo "No build script, skipping build"
+          fi
 
       # Optional: generate project-specific .env for deploy
       # Requires repository secrets STRIPE_* to be set
