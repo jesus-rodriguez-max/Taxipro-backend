@@ -40,6 +40,7 @@ import { submitRatingCallable } from './ratings/submitRating';
 import { cleanupSharedTrips } from './sharedTrips/cleanupSharedTrips';
 import { checkDisconnectedTrips } from './trips/checkDisconnectedTrips';
 import { createPaymentIntentCallable } from './payments/createPaymentIntent';
+import { createPassengerCheckoutSessionCallable } from './payments/createPassengerCheckoutSession';
 import { requestTripOfflineCallable } from './trips/requestTripOffline';
 import { autoAssignDriver } from './trips/autoAssignDriver';
 import { updateTariffsCallable } from './fares/updateTariffs';
@@ -124,6 +125,7 @@ export const checkDisconnectedTripsScheduled = checkDisconnectedTrips;
 
 // Payment-related functions
 export const createPaymentIntent = https.onCall(createPaymentIntentCallable);
+export const createPassengerCheckoutSession = https.onCall(createPassengerCheckoutSessionCallable);
 
 // Trip triggers
 export { autoAssignDriver };

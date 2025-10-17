@@ -52,6 +52,26 @@ export const handleStripeWebhook = async (event: Stripe.Event) => {
     case 'checkout.session.completed': {
       try {
         const session = event.data.object as Stripe.Checkout.Session;
+        const meta: any = (session.metadata || {}) as any;
+        const tripId = meta.tripId as string | undefined;
+        if (tripId) {
+          // Passenger trip payment flow: mark trip as paid
+          const tripRef = db.collection('trips').doc(tripId);
+          await tripRef.set(
+            {
+              paymentStatus: 'paid',
+              paymentMethod: 'card',
+              stripeSessionId: session.id,
+              paidAt: admin.firestore.FieldValue.serverTimestamp(),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            } as any,
+            { merge: true }
+          );
+          functions.logger.info(`Trip ${tripId} marked as paid from Checkout session ${session.id}.`);
+          break;
+        }
+
+        // Driver subscription activation flow (legacy behavior)
         const driverId = (session.client_reference_id as string) || '';
         if (!driverId) {
           functions.logger.warn('checkout.session.completed without client_reference_id');

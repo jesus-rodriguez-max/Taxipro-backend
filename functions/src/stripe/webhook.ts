@@ -2,6 +2,7 @@ import * as functions from "firebase-functions";
 import Stripe from "stripe";
 import express from "express";
 import bodyParser from "body-parser";
+import { handleStripeWebhook } from "./service";
 
 // Inicializa Stripe con la clave secreta desde las variables de entorno
 const stripe = new Stripe(functions.config().stripe.secret, {
@@ -76,6 +77,8 @@ export const stripeWebhookHandler = async (req: express.Request, res: express.Re
         console.log(`ℹ️ Evento recibido sin manejar: ${event.type}`);
         break;
     }
+    // Procesamiento centralizado de eventos (suscripciones y pagos por viaje)
+    await handleStripeWebhook(event);
   } catch (error) {
     console.error("💥 Error procesando evento Stripe:", error);
     res.status(500).send("Error interno procesando evento");
