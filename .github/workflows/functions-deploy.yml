@@ -29,23 +29,10 @@ jobs:
         with:
           node-version: 20
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
-          export_environment_variables: true
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
-          export_environment_variables: true
-
-      - name: Setup Java (for Firebase emulators)
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+      - name: Write Firebase service account key
+        run: |
+          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > "${RUNNER_TEMP}/firebase-key.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${RUNNER_TEMP}/firebase-key.json" >> $GITHUB_ENV
 
       - name: Cache Firebase Emulators
         uses: actions/cache@v3
@@ -56,9 +43,21 @@ jobs:
       - name: Install deps (root)
         run: npm ci
 
-      - name: Install deps (functions)
-        working-directory: functions
-        run: npm ci
+      - name: Install deps (functions) if needed
+        run: |
+          if [ -f ./functions/package-lock.json ]; then
+            npm --prefix ./functions ci
+          else
+            npm --prefix ./functions install
+          fi
+
+      - name: Build (functions) if script exists
+        run: |
+          if node -e "const p=require('./functions/package.json'); process.exit(!(p.scripts && p.scripts.build));"; then
+            npm --prefix ./functions run build
+          else
+            echo "No build script, skipping build"
+          fi
 
       - name: Run unit tests
         run: npm test --silent
