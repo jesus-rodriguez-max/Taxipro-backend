@@ -16,6 +16,7 @@ export const stripeWebhookHandler = async (req: express.Request, res: express.Re
   console.log("[stripeWebhook] Headers:", req.headers);
   console.log("[stripeWebhook] Stripe-Signature:", sig);
   console.log("[stripeWebhook] body is buffer:", Buffer.isBuffer(req.body as any));
+  console.log("[stripeWebhook] rawBody is buffer:", Buffer.isBuffer((req as any).rawBody));
 
   if (!sig) {
     console.error("❌ No se encontró la firma de Stripe");
@@ -33,10 +34,10 @@ export const stripeWebhookHandler = async (req: express.Request, res: express.Re
   let event: Stripe.Event;
   try {
     try {
-      const len = Buffer.isBuffer(req.body as any) ? (req.body as any as Buffer).length : -1;
+      const len = Buffer.isBuffer((req as any).rawBody) ? ((req as any).rawBody as Buffer).length : -1;
       console.log("[stripeWebhook] Payload recibido bytes:", len);
     } catch {}
-    event = stripe.webhooks.constructEvent(req.body as any, sig, webhookSecret);
+    event = stripe.webhooks.constructEvent((req as any).rawBody, sig, webhookSecret);
     console.log("[stripeWebhook] constructEvent OK:", event.type);
   } catch (err: any) {
     console.error("❌ Error verificando la firma del webhook:", err?.message || err);

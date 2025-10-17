@@ -53,6 +53,7 @@ const stripeWebhookHandler = async (req, res) => {
     console.log("[stripeWebhook] Headers:", req.headers);
     console.log("[stripeWebhook] Stripe-Signature:", sig);
     console.log("[stripeWebhook] body is buffer:", Buffer.isBuffer(req.body));
+    console.log("[stripeWebhook] rawBody is buffer:", Buffer.isBuffer(req.rawBody));
     if (!sig) {
         console.error("❌ No se encontró la firma de Stripe");
         res.status(403).send("Webhook Error: No signature found");
@@ -67,11 +68,11 @@ const stripeWebhookHandler = async (req, res) => {
     let event;
     try {
         try {
-            const len = Buffer.isBuffer(req.body) ? req.body.length : -1;
+            const len = Buffer.isBuffer(req.rawBody) ? req.rawBody.length : -1;
             console.log("[stripeWebhook] Payload recibido bytes:", len);
         }
         catch { }
-        event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+        event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
         console.log("[stripeWebhook] constructEvent OK:", event.type);
     }
     catch (err) {
