@@ -29,6 +29,18 @@ jobs:
         with:
           node-version: 20
 
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
+          export_environment_variables: true
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
+          export_environment_variables: true
+
       - name: Setup Java (for Firebase emulators)
         uses: actions/setup-java@v4
         with:
@@ -72,17 +84,18 @@ jobs:
         with:
           node-version: 20
 
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
+          export_environment_variables: true
+
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
       - name: Install deps (functions)
         working-directory: functions
         run: npm ci
-
-      - name: Set up GOOGLE_APPLICATION_CREDENTIALS
-        run: |
-          echo "${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}" > account.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=${{ github.workspace }}/account.json" >> $GITHUB_ENV
 
       # Optional: generate project-specific .env for deploy
       # Requires repository secrets STRIPE_* to be set
@@ -125,10 +138,6 @@ jobs:
         working-directory: functions
         run: npm ci
 
-      - name: Set up GOOGLE_APPLICATION_CREDENTIALS
-        run: |
-          echo "${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}" > account.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=account.json" >> $GITHUB_ENV
 
       - name: Prepare .env for project (taxipro-usuariox)
         working-directory: functions
