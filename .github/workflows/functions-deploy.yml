@@ -79,6 +79,11 @@ jobs:
         working-directory: functions
         run: npm ci
 
+      - name: Set up GOOGLE_APPLICATION_CREDENTIALS
+        run: |
+          echo "${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}" > account.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=account.json" >> $GITHUB_ENV
+
       # Optional: generate project-specific .env for deploy
       # Requires repository secrets STRIPE_* to be set
       - name: Prepare .env for project (taxipro-chofer)
@@ -93,8 +98,6 @@ jobs:
           EOF
 
       - name: Deploy Functions (taxipro-chofer)
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: firebase deploy --only functions --project taxipro-chofer
 
   deploy-usuariox:
@@ -122,6 +125,11 @@ jobs:
         working-directory: functions
         run: npm ci
 
+      - name: Set up GOOGLE_APPLICATION_CREDENTIALS
+        run: |
+          echo "${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}" > account.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=account.json" >> $GITHUB_ENV
+
       - name: Prepare .env for project (taxipro-usuariox)
         working-directory: functions
         run: |
@@ -134,6 +142,4 @@ jobs:
           EOF
 
       - name: Deploy Functions (taxipro-usuariox)
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: firebase deploy --only functions --project taxipro-usuariox
