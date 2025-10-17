@@ -12,7 +12,9 @@
     "deploy:functions": "firebase deploy --only functions"
   },
   "dependencies": {
+    "body-parser": "^2.2.0",
     "dotenv": "^17.2.3",
+    "express": "^5.1.0",
     "firebase-admin": "^12.7.0",
     "firebase-functions": "^5.1.1",
     "geofire-common": "^6.0.0",
