@@ -36,9 +36,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.stripeWebhook = void 0;
+exports.stripeWebhook = exports.stripeWebhookHandler = void 0;
 const functions = __importStar(require("firebase-functions"));
 const stripe_1 = __importDefault(require("stripe"));
+const express_1 = __importDefault(require("express"));
+const body_parser_1 = __importDefault(require("body-parser"));
 // Inicializa Stripe con la clave secreta desde las variables de entorno
 const stripe = new stripe_1.default(functions.config().stripe.secret, {
     apiVersion: "2024-06-20",
@@ -46,13 +48,11 @@ const stripe = new stripe_1.default(functions.config().stripe.secret, {
 /**
  * Webhook de Stripe: recibe notificaciones de pagos y suscripciones
  */
-exports.stripeWebhook = functions
-    .region("us-central1")
-    .https.onRequest(async (req, res) => {
+const stripeWebhookHandler = async (req, res) => {
     const sig = req.headers["stripe-signature"];
     console.log("[stripeWebhook] Headers:", req.headers);
     console.log("[stripeWebhook] Stripe-Signature:", sig);
-    console.log("[stripeWebhook] rawBody is buffer:", Buffer.isBuffer(req.rawBody));
+    console.log("[stripeWebhook] body is buffer:", Buffer.isBuffer(req.body));
     if (!sig) {
         console.error("❌ No se encontró la firma de Stripe");
         res.status(403).send("Webhook Error: No signature found");
@@ -66,7 +66,7 @@ exports.stripeWebhook = functions
     }
     let event;
     try {
-        event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
+        event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
     }
     catch (err) {
         console.error("❌ Error verificando la firma del webhook:", err?.message || err);
@@ -107,5 +107,10 @@ exports.stripeWebhook = functions
     }
     // Stripe necesita recibir 200 para confirmar recepción
     res.status(200).json({ received: true });
-});
+};
+exports.stripeWebhookHandler = stripeWebhookHandler;
+const app = (0, express_1.default)();
+// Montar en '/' para mantener la misma URL del webhook (no duplicar path)
+app.post("/", body_parser_1.default.raw({ type: "*/*" }), exports.stripeWebhookHandler);
+exports.stripeWebhook = functions.region("us-central1").https.onRequest(app);
 //# sourceMappingURL=webhook.js.map
