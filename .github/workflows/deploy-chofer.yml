@@ -26,12 +26,12 @@ jobs:
 
       - name: Set up GOOGLE_APPLICATION_CREDENTIALS
         run: |
-          echo "${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}" > /tmp/account.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/account.json" >> $GITHUB_ENV
+          echo "${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}" > ${{ github.workspace }}/account.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${{ github.workspace }}/account.json" >> $GITHUB_ENV
 
       - name: Run Tests
         run: npm test
         working-directory: ./functions
 
       - name: Deploy Functions (LIVE)
-        run: firebase deploy --only functions --project taxipro-chofer
+        run: firebase deploy --only functions --project taxipro-chofer --non-interactive

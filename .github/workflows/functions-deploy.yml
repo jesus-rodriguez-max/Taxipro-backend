@@ -82,7 +82,7 @@ jobs:
       - name: Set up GOOGLE_APPLICATION_CREDENTIALS
         run: |
           echo "${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}" > account.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=account.json" >> $GITHUB_ENV
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${{ github.workspace }}/account.json" >> $GITHUB_ENV
 
       # Optional: generate project-specific .env for deploy
       # Requires repository secrets STRIPE_* to be set
@@ -98,7 +98,7 @@ jobs:
           EOF
 
       - name: Deploy Functions (taxipro-chofer)
-        run: firebase deploy --only functions --project taxipro-chofer
+        run: firebase deploy --only functions --project taxipro-chofer --non-interactive
 
   deploy-usuariox:
     needs: [test]
@@ -142,4 +142,4 @@ jobs:
           EOF
 
       - name: Deploy Functions (taxipro-usuariox)
-        run: firebase deploy --only functions --project taxipro-usuariox
+        run: firebase deploy --only functions --project taxipro-usuariox --non-interactive
