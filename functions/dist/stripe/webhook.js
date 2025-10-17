@@ -50,12 +50,15 @@ exports.stripeWebhook = functions
     .region("us-central1")
     .https.onRequest(async (req, res) => {
     const sig = req.headers["stripe-signature"];
+    console.log("[stripeWebhook] Headers:", req.headers);
+    console.log("[stripeWebhook] Stripe-Signature:", sig);
+    console.log("[stripeWebhook] rawBody is buffer:", Buffer.isBuffer(req.rawBody));
     if (!sig) {
         console.error("❌ No se encontró la firma de Stripe");
-        res.status(400).send("Webhook Error: No signature found");
+        res.status(403).send("Webhook Error: No signature found");
         return;
     }
-    const webhookSecret = functions.config().stripe.webhook_secret;
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || functions.config().stripe.webhook_secret;
     if (!webhookSecret) {
         console.error("❌ Falta stripe.webhook_secret en las configuraciones de Functions");
         res.status(500).send("Webhook Error: Missing webhook secret configuration");
@@ -66,8 +69,9 @@ exports.stripeWebhook = functions
         event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
     }
     catch (err) {
-        console.error("❌ Error verificando la firma del webhook:", err.message);
-        res.status(400).send(`Webhook Error: ${err.message}`);
+        console.error("❌ Error verificando la firma del webhook:", err?.message || err);
+        console.error("Stack:", err?.stack);
+        res.status(403).send(`Webhook Signature Error: ${err?.message || 'Invalid signature'}`);
         return;
     }
     // Maneja los tipos de eventos de Stripe
@@ -75,6 +79,12 @@ exports.stripeWebhook = functions
         switch (event.type) {
             case "invoice.payment_succeeded":
                 console.log("✅ Pago exitoso:", event.data.object["id"]);
+                break;
+            case "invoice.paid":
+                console.log("✅ Factura pagada:", event.data.object);
+                break;
+            case "checkout.session.completed":
+                console.log("✅ Checkout completado:", event.data.object["id"]);
                 break;
             case "customer.subscription.created":
                 console.log("🟢 Nueva suscripción creada:", event.data.object["id"]);
