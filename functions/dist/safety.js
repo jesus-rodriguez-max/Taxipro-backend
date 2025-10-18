@@ -55,7 +55,8 @@ const logEvent = async (tripId, type, passengerId, metadata = {}) => {
 /**
  * Notifica al backend que la grabación de audio ha comenzado.
  */
-exports.startRecordingCallable = (0, https_1.onCall)(async (request) => {
+exports.startRecordingCallable = (0, https_1.onCall)({ region: 'us-central1' }, async (request) => {
+    console.log('[✔] Función cargada: startRecording');
     const { auth, data } = request;
     if (!auth)
         throw new https_1.HttpsError('unauthenticated', 'Autenticación requerida.');
@@ -66,7 +67,8 @@ exports.startRecordingCallable = (0, https_1.onCall)(async (request) => {
 /**
  * Notifica al backend que la grabación de audio ha finalizado.
  */
-exports.stopRecordingCallable = (0, https_1.onCall)(async (request) => {
+exports.stopRecordingCallable = (0, https_1.onCall)({ region: 'us-central1' }, async (request) => {
+    console.log('[✔] Función cargada: stopRecording');
     const { auth, data } = request;
     if (!auth)
         throw new https_1.HttpsError('unauthenticated', 'Autenticación requerida.');

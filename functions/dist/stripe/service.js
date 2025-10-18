@@ -47,6 +47,9 @@ const config_1 = require("../config");
 let stripeClient = null;
 const getStripe = () => {
     if (!stripeClient) {
+        if (!config_1.STRIPE_SECRET) {
+            throw new Error('Missing STRIPE_SECRET');
+        }
         stripeClient = new stripe_1.default(config_1.STRIPE_SECRET, {
             apiVersion: '2024-06-20', // Usa una versión de API fija y soportada
             typescript: true,
@@ -85,6 +88,22 @@ const handleStripeWebhook = async (event) => {
         case 'checkout.session.completed': {
             try {
                 const session = event.data.object;
+                const meta = (session.metadata || {});
+                const tripId = meta.tripId;
+                if (tripId) {
+                    // Passenger trip payment flow: mark trip as paid
+                    const tripRef = db.collection('trips').doc(tripId);
+                    await tripRef.set({
+                        paymentStatus: 'paid',
+                        paymentMethod: 'card',
+                        stripeSessionId: session.id,
+                        paidAt: admin.firestore.FieldValue.serverTimestamp(),
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    }, { merge: true });
+                    functions.logger.info(`Trip ${tripId} marked as paid from Checkout session ${session.id}.`);
+                    break;
+                }
+                // Driver subscription activation flow (legacy behavior)
                 const driverId = session.client_reference_id || '';
                 if (!driverId) {
                     functions.logger.warn('checkout.session.completed without client_reference_id');

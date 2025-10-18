@@ -7,7 +7,7 @@ import { updateTripStatusCallable } from './trips/updateTripStatus';
 import { driverArrivedCallable } from './trips/driverArrived';
 import { cancelTripCallable } from './trips/cancelTrip';
 import { markAsNoShowCallable } from './trips/markAsNoShow';
-// import { stripeWebhookV2 } from './stripe/webhookV2';
+import { stripeWebhookV2 } from './stripe/webhookV2';
 import { finalizeDriverSubscriptionFromSessionCallable } from './stripe/finalizeSubscriptionFromSession';
 import { getDriverStatusAdminCallable } from './stripe/getDriverStatusAdmin';
 import { createDriverAccountCallable } from './stripe/createDriverAccount';
@@ -19,10 +19,10 @@ import {
   processMembershipPayments as processMembershipPaymentsFunction,
   suspendOverdueMemberships as suspendOverdueMembershipsFunction,
 } from './membership/processMembershipPayments'; // Añadido
-// import {
-//   startRecordingCallable,
-//   stopRecordingCallable
-// } from './safety';
+import {
+  startRecordingCallable,
+  stopRecordingCallable
+} from './safety';
 
 import {
   enableShareCallable,
@@ -68,11 +68,7 @@ export const markAsNoShow = https.onCall(markAsNoShowCallable);
 export const requestTripOffline = https.onCall(requestTripOfflineCallable);
 
 // Stripe webhook (HTTP request)
-// export { stripeWebhookV2 };
-export const stripeWebhookV2 = onRequest({ region: 'us-central1', invoker: 'public' }, async (req, res) => {
-  console.log('[✔] Función cargada: stripeWebhookV2 (disabled)');
-  res.status(503).send('stripeWebhookV2 temporarily disabled for deploy investigation');
-});
+export { stripeWebhookV2 };
 
 // Stripe Connect endpoints (Express account onboarding and subscription)
 export const createDriverAccount = https.onCall(createDriverAccountCallable);
@@ -85,14 +81,8 @@ export const processMembershipPayments = processMembershipPaymentsFunction; // A
 export const suspendOverdueMemberships = suspendOverdueMembershipsFunction; // Añadido
 
 // Safety-related callables (already wrapped in v2 onCall in safety.ts)
-export const startRecording = onCall({ region: 'us-central1' }, async (request) => {
-  console.log('[✔] Función cargada: startRecording (disabled)');
-  throw new HttpsError('unavailable', 'startRecording temporarily disabled for deploy investigation');
-});
-export const stopRecording = onCall({ region: 'us-central1' }, async (request) => {
-  console.log('[✔] Función cargada: stopRecording (disabled)');
-  throw new HttpsError('unavailable', 'stopRecording temporarily disabled for deploy investigation');
-});
+export const startRecording = startRecordingCallable;
+export const stopRecording = stopRecordingCallable;
 
 // Share-related functions
 export const enableShare = enableShareCallable;

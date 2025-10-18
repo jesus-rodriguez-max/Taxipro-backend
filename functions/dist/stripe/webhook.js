@@ -38,13 +38,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.stripeWebhook = exports.stripeWebhookHandler = void 0;
 const functions = __importStar(require("firebase-functions"));
-const stripe_1 = __importDefault(require("stripe"));
 const express_1 = __importDefault(require("express"));
 const body_parser_1 = __importDefault(require("body-parser"));
-// Inicializa Stripe con la clave secreta desde las variables de entorno
-const stripe = new stripe_1.default(functions.config().stripe.secret, {
-    apiVersion: "2024-06-20",
-});
+const service_1 = require("./service");
+const config_1 = require("../config");
 /**
  * Webhook de Stripe: recibe notificaciones de pagos y suscripciones
  */
@@ -59,7 +56,7 @@ const stripeWebhookHandler = async (req, res) => {
         res.status(403).send("Webhook Error: No signature found");
         return;
     }
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || functions.config().stripe.webhook_secret;
+    const webhookSecret = config_1.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET || '';
     if (!webhookSecret) {
         console.error("❌ Falta stripe.webhook_secret en las configuraciones de Functions");
         res.status(500).send("Webhook Error: Missing webhook secret configuration");
@@ -72,7 +69,7 @@ const stripeWebhookHandler = async (req, res) => {
             console.log("[stripeWebhook] Payload recibido bytes:", len);
         }
         catch { }
-        event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
+        event = (0, service_1.getStripe)().webhooks.constructEvent(req.rawBody, sig, webhookSecret);
         console.log("[stripeWebhook] constructEvent OK:", event.type);
     }
     catch (err) {
@@ -107,6 +104,8 @@ const stripeWebhookHandler = async (req, res) => {
                 console.log(`ℹ️ Evento recibido sin manejar: ${event.type}`);
                 break;
         }
+        // Procesamiento centralizado de eventos (suscripciones y pagos por viaje)
+        await (0, service_1.handleStripeWebhook)(event);
     }
     catch (error) {
         console.error("💥 Error procesando evento Stripe:", error);
