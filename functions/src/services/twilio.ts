@@ -1,10 +1,18 @@
-import twilio from 'twilio';
 import { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER, TWILIO_PHONE_NUMBER } from '../config';
 
-const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+// Lazy ESM-safe client loader to avoid top-level import of 'twilio'
+let twilioClient: any | null = null;
+async function getTwilioClient() {
+  if (twilioClient) return twilioClient;
+  const mod: any = await import('twilio');
+  const twilioFactory = mod?.default ?? mod;
+  twilioClient = twilioFactory(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+  return twilioClient;
+}
 
 export const sendWhatsApp = async (to: string, body: string) => {
   try {
+    const client = await getTwilioClient();
     const message = await client.messages.create({
       from: `whatsapp:${TWILIO_WHATSAPP_NUMBER}`,
       to: `whatsapp:${to}`,
@@ -19,6 +27,7 @@ export const sendWhatsApp = async (to: string, body: string) => {
 
 export const makeCall = async (to: string, twiml: string) => {
   try {
+    const client = await getTwilioClient();
     const call = await client.calls.create({
       to,
       from: TWILIO_PHONE_NUMBER,

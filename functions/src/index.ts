@@ -7,7 +7,6 @@ import { updateTripStatusCallable } from './trips/updateTripStatus';
 import { driverArrivedCallable } from './trips/driverArrived';
 import { cancelTripCallable } from './trips/cancelTrip';
 import { markAsNoShowCallable } from './trips/markAsNoShow';
-import { stripeWebhook } from './stripe/webhook';
 // import { stripeWebhookV2 } from './stripe/webhookV2';
 import { finalizeDriverSubscriptionFromSessionCallable } from './stripe/finalizeSubscriptionFromSession';
 import { getDriverStatusAdminCallable } from './stripe/getDriverStatusAdmin';
@@ -69,7 +68,6 @@ export const markAsNoShow = https.onCall(markAsNoShowCallable);
 export const requestTripOffline = https.onCall(requestTripOfflineCallable);
 
 // Stripe webhook (HTTP request)
-export { stripeWebhook };
 // export { stripeWebhookV2 };
 export const stripeWebhookV2 = onRequest({ region: 'us-central1', invoker: 'public' }, async (req, res) => {
   console.log('[✔] Función cargada: stripeWebhookV2 (disabled)');
