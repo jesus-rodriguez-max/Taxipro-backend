@@ -53,6 +53,9 @@ import { cancelTripWithPenaltyCallable } from './trips/cancelTripWithPenalty';
 // Initialize Firebase Admin
 admin.initializeApp();
 
+// Startup marker to verify container boot
+console.log('[✔] Backend iniciado');
+
 // Onboarding
 export const updateDriverOnboarding = https.onCall(updateDriverOnboardingCallable);
 

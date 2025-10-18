@@ -2,12 +2,9 @@ import * as functions from "firebase-functions";
 import Stripe from "stripe";
 import express from "express";
 import bodyParser from "body-parser";
-import { handleStripeWebhook } from "./service";
+import { getStripe, handleStripeWebhook } from "./service";
 
-// Inicializa Stripe con la clave secreta desde las variables de entorno
-const stripe = new Stripe(functions.config().stripe.secret, {
-  apiVersion: "2024-06-20" as any,
-});
+// Inicialización lazy: evitar crear el cliente de Stripe en el nivel de módulo
 
 /**
  * Webhook de Stripe: recibe notificaciones de pagos y suscripciones
@@ -38,7 +35,7 @@ export const stripeWebhookHandler = async (req: express.Request, res: express.Re
       const len = Buffer.isBuffer((req as any).rawBody) ? ((req as any).rawBody as Buffer).length : -1;
       console.log("[stripeWebhook] Payload recibido bytes:", len);
     } catch {}
-    event = stripe.webhooks.constructEvent((req as any).rawBody, sig, webhookSecret);
+    event = getStripe().webhooks.constructEvent((req as any).rawBody, sig, webhookSecret);
     console.log("[stripeWebhook] constructEvent OK:", event.type);
   } catch (err: any) {
     console.error("❌ Error verificando la firma del webhook:", err?.message || err);
