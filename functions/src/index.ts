@@ -7,7 +7,7 @@ import { driverArrivedCallable } from './trips/driverArrived';
 import { cancelTripCallable } from './trips/cancelTrip';
 import { markAsNoShowCallable } from './trips/markAsNoShow';
 import { stripeWebhook } from './stripe/webhook';
-import { stripeWebhookV2 } from './stripe/webhookV2';
+// import { stripeWebhookV2 } from './stripe/webhookV2';
 import { finalizeDriverSubscriptionFromSessionCallable } from './stripe/finalizeSubscriptionFromSession';
 import { getDriverStatusAdminCallable } from './stripe/getDriverStatusAdmin';
 import { createDriverAccountCallable } from './stripe/createDriverAccount';
@@ -19,10 +19,10 @@ import {
   processMembershipPayments as processMembershipPaymentsFunction,
   suspendOverdueMemberships as suspendOverdueMembershipsFunction,
 } from './membership/processMembershipPayments'; // Añadido
-import {
-  startRecordingCallable,
-  stopRecordingCallable
-} from './safety';
+// import {
+//   startRecordingCallable,
+//   stopRecordingCallable
+// } from './safety';
 
 import {
   enableShareCallable,
@@ -53,7 +53,6 @@ import { cancelTripWithPenaltyCallable } from './trips/cancelTripWithPenalty';
 // Initialize Firebase Admin
 admin.initializeApp();
 
-// Startup marker to verify container boot
 console.log('[✔] Backend iniciado');
 
 // Onboarding
@@ -70,7 +69,7 @@ export const requestTripOffline = https.onCall(requestTripOfflineCallable);
 
 // Stripe webhook (HTTP request)
 export { stripeWebhook };
-export { stripeWebhookV2 };
+// export { stripeWebhookV2 };
 
 // Stripe Connect endpoints (Express account onboarding and subscription)
 export const createDriverAccount = https.onCall(createDriverAccountCallable);
@@ -83,8 +82,8 @@ export const processMembershipPayments = processMembershipPaymentsFunction; // A
 export const suspendOverdueMemberships = suspendOverdueMembershipsFunction; // Añadido
 
 // Safety-related callables (already wrapped in v2 onCall in safety.ts)
-export const startRecording = startRecordingCallable;
-export const stopRecording = stopRecordingCallable;
+// export const startRecording = startRecordingCallable;
+// export const stopRecording = stopRecordingCallable;
 
 // Share-related functions
 export const enableShare = enableShareCallable;
