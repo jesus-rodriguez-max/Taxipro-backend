@@ -3,8 +3,7 @@ import Stripe from "stripe";
 import express from "express";
 import bodyParser from "body-parser";
 import { getStripe, handleStripeWebhook } from "./service";
-
-// Inicialización lazy: evitar crear el cliente de Stripe en el nivel de módulo
+import { STRIPE_WEBHOOK_SECRET } from "../config";
 
 /**
  * Webhook de Stripe: recibe notificaciones de pagos y suscripciones
@@ -22,7 +21,7 @@ export const stripeWebhookHandler = async (req: express.Request, res: express.Re
     return;
   }
 
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || functions.config().stripe.webhook_secret;
+  const webhookSecret = STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET || '';
   if (!webhookSecret) {
     console.error("❌ Falta stripe.webhook_secret en las configuraciones de Functions");
     res.status(500).send("Webhook Error: Missing webhook secret configuration");

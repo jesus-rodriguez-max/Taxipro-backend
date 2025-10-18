@@ -9,6 +9,9 @@ import { STRIPE_SECRET, STRIPE_SUBSCRIPTION_DAYS } from '../config';
 let stripeClient: Stripe | null = null;
 export const getStripe = (): Stripe => {
   if (!stripeClient) {
+    if (!STRIPE_SECRET) {
+      throw new Error('Missing STRIPE_SECRET');
+    }
     stripeClient = new Stripe(STRIPE_SECRET, {
       apiVersion: '2024-06-20' as any, // Usa una versión de API fija y soportada
       typescript: true,

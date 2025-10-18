@@ -9,6 +9,7 @@ import { STRIPE_WEBHOOK_SECRET } from '../config';
  * Usa req.rawBody para verificación de firma.
  */
 export const stripeWebhookV2 = onRequest({ region: 'us-central1', invoker: 'public' }, async (req: Request, res: Response) => {
+  console.log('[✔] Función cargada: stripeWebhookV2');
   if (req.method !== 'POST') {
     res.status(405).send('Method Not Allowed');
     return;
