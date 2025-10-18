@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin';
 import { https, pubsub } from 'firebase-functions'; // Añadido pubsub
+import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { requestTripCallable } from './trips/requestTrip';
 import { acceptTripCallable } from './trips/acceptTrip';
 import { updateTripStatusCallable } from './trips/updateTripStatus';
@@ -70,6 +71,10 @@ export const requestTripOffline = https.onCall(requestTripOfflineCallable);
 // Stripe webhook (HTTP request)
 export { stripeWebhook };
 // export { stripeWebhookV2 };
+export const stripeWebhookV2 = onRequest({ region: 'us-central1', invoker: 'public' }, async (req, res) => {
+  console.log('[✔] Función cargada: stripeWebhookV2 (disabled)');
+  res.status(503).send('stripeWebhookV2 temporarily disabled for deploy investigation');
+});
 
 // Stripe Connect endpoints (Express account onboarding and subscription)
 export const createDriverAccount = https.onCall(createDriverAccountCallable);
@@ -82,8 +87,14 @@ export const processMembershipPayments = processMembershipPaymentsFunction; // A
 export const suspendOverdueMemberships = suspendOverdueMembershipsFunction; // Añadido
 
 // Safety-related callables (already wrapped in v2 onCall in safety.ts)
-// export const startRecording = startRecordingCallable;
-// export const stopRecording = stopRecordingCallable;
+export const startRecording = onCall({ region: 'us-central1' }, async (request) => {
+  console.log('[✔] Función cargada: startRecording (disabled)');
+  throw new HttpsError('unavailable', 'startRecording temporarily disabled for deploy investigation');
+});
+export const stopRecording = onCall({ region: 'us-central1' }, async (request) => {
+  console.log('[✔] Función cargada: stopRecording (disabled)');
+  throw new HttpsError('unavailable', 'stopRecording temporarily disabled for deploy investigation');
+});
 
 // Share-related functions
 export const enableShare = enableShareCallable;
