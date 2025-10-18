@@ -48,5 +48,5 @@ jobs:
         run: npm test
         working-directory: ./functions
 
-      - name: Deploy Functions (LIVE)
-        run: firebase deploy --only functions --project taxipro-chofer --non-interactive
+      - name: Deploy Functions (LIVE - stripeWebhookV2 only, debug)
+        run: FIREBASE_CLI_LOG_LEVEL=debug firebase deploy --only functions:stripeWebhookV2 --project taxipro-chofer --non-interactive
