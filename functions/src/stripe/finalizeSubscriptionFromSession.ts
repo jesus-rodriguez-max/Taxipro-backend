@@ -59,8 +59,8 @@ export const finalizeDriverSubscriptionFromSessionCallable = async (data: Finali
       }
     }
     if (!expiresAt) {
-      const days = STRIPE_SUBSCRIPTION_DAYS || 7;
-      expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+      const subscriptionDays = STRIPE_SUBSCRIPTION_DAYS || 7;
+      expiresAt = new Date(Date.now() + subscriptionDays * 24 * 60 * 60 * 1000);
     }
 
     const driverRef = admin.firestore().collection('drivers').doc(uid);

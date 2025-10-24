@@ -53,11 +53,7 @@ const createStripeAccountLink = async (data, context) => {
     const uid = context.auth.uid;
     const driverRef = admin.firestore().collection('drivers').doc(uid);
     try {
-        const stripeSecret = config_1.STRIPE_SECRET;
-        if (!stripeSecret) {
-            throw new functions.https.HttpsError('failed-precondition', 'Stripe secret no configurado.');
-        }
-        const stripe = new stripe_1.default(stripeSecret, {
+        const stripe = new stripe_1.default(config_1.STRIPE_SECRET, {
             apiVersion: '2024-06-20',
         });
         const driverDoc = await driverRef.get();

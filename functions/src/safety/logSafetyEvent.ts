@@ -50,11 +50,11 @@ export const logSafetyEventV2Callable = async (data: LogSafetyEventData, context
   }
 
   // 2. Validar límites de uso (rate limiting)
-  const rateLimitMinutes = SAFETY_RATE_LIMIT_MINUTES;
+  const timeLimit = SAFETY_RATE_LIMIT_MINUTES * 60 * 1000;
   const dailyLimit = SAFETY_DAILY_LIMIT;
 
   const now = admin.firestore.Timestamp.now();
-  const tenMinutesAgo = admin.firestore.Timestamp.fromMillis(now.toMillis() - rateLimitMinutes * 60 * 1000);
+  const tenMinutesAgo = admin.firestore.Timestamp.fromMillis(now.toMillis() - timeLimit);
   const twentyFourHoursAgo = admin.firestore.Timestamp.fromMillis(now.toMillis() - 86400000);
 
   const recentLogsQuery = db.collectionGroup('safety_logs')
@@ -71,7 +71,7 @@ export const logSafetyEventV2Callable = async (data: LogSafetyEventData, context
   ]);
 
   if (!recentLogsSnap.empty) {
-    throw new HttpsError('resource-exhausted', `Solo puedes enviar una alerta cada ${rateLimitMinutes} minutos.`);
+    throw new HttpsError('resource-exhausted', `Solo puedes enviar una alerta cada ${SAFETY_RATE_LIMIT_MINUTES} minutos.`);
   }
 
   if (dailyLogsSnap.size >= dailyLimit) {

@@ -46,11 +46,7 @@ const createDriverAccountCallable = async (data, context) => {
         throw new functions.https.HttpsError('unauthenticated', 'Debe iniciar sesión.');
     }
     const driverId = context.auth.uid;
-    const stripeSecret = config_1.STRIPE_SECRET;
-    if (!stripeSecret) {
-        throw new functions.https.HttpsError('failed-precondition', 'Stripe secret no configurado.');
-    }
-    const stripe = new stripe_1.default(stripeSecret, { apiVersion: '2024-06-20' });
+    const stripe = new stripe_1.default(config_1.STRIPE_SECRET, { apiVersion: '2024-06-20' });
     const driverRef = admin.firestore().collection('drivers').doc(driverId);
     const snap = await driverRef.get();
     if (!snap.exists) {

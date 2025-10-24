@@ -1,7 +1,7 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import Stripe from 'stripe';
-import { STRIPE_SECRET, STRIPE_ONBOARDING_REFRESH_URL, STRIPE_ONBOARDING_RETURN_URL } from '../config';
+import { STRIPE_SECRET, STRIPE_ONBOARDING_RETURN_URL, STRIPE_ONBOARDING_REFRESH_URL } from '../config';
 
 // Stripe will be initialized lazily inside the function using STRIPE_SECRET from config
 
@@ -17,11 +17,7 @@ export const createStripeAccountLink = async (data: any, context: functions.http
   const driverRef = admin.firestore().collection('drivers').doc(uid);
 
   try {
-    const stripeSecret = STRIPE_SECRET;
-    if (!stripeSecret) {
-      throw new functions.https.HttpsError('failed-precondition', 'Stripe secret no configurado.');
-    }
-    const stripe = new Stripe(stripeSecret, {
+    const stripe = new Stripe(STRIPE_SECRET, {
       apiVersion: '2024-06-20' as any,
     });
 

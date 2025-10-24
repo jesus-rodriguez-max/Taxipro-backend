@@ -21,7 +21,7 @@ export const stripeWebhookHandler = async (req: express.Request, res: express.Re
     return;
   }
 
-  const webhookSecret = STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET || '';
+  const webhookSecret = STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) {
     console.error("❌ Falta stripe.webhook_secret en las configuraciones de Functions");
     res.status(500).send("Webhook Error: Missing webhook secret configuration");
@@ -34,7 +34,8 @@ export const stripeWebhookHandler = async (req: express.Request, res: express.Re
       const len = Buffer.isBuffer((req as any).rawBody) ? ((req as any).rawBody as Buffer).length : -1;
       console.log("[stripeWebhook] Payload recibido bytes:", len);
     } catch {}
-    event = getStripe().webhooks.constructEvent((req as any).rawBody, sig, webhookSecret);
+    const stripe = getStripe(); // Initialize lazily
+    event = stripe.webhooks.constructEvent((req as any).rawBody, sig, webhookSecret);
     console.log("[stripeWebhook] constructEvent OK:", event.type);
   } catch (err: any) {
     console.error("❌ Error verificando la firma del webhook:", err?.message || err);

@@ -32,7 +32,8 @@ export const stripeWebhookV2 = onRequest(
 
     let event: Stripe.Event;
     try {
-      event = getStripe().webhooks.constructEvent((req as any).rawBody, sig, webhookSecret);
+      const stripe = getStripe(); // Initialize lazily
+      event = stripe.webhooks.constructEvent((req as any).rawBody, sig, webhookSecret);
     } catch (err: any) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       console.error('[stripeWebhookV2] Signature verification failed:', message);

@@ -56,7 +56,7 @@ const stripeWebhookHandler = async (req, res) => {
         res.status(403).send("Webhook Error: No signature found");
         return;
     }
-    const webhookSecret = config_1.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET || '';
+    const webhookSecret = config_1.STRIPE_WEBHOOK_SECRET;
     if (!webhookSecret) {
         console.error("❌ Falta stripe.webhook_secret en las configuraciones de Functions");
         res.status(500).send("Webhook Error: Missing webhook secret configuration");
@@ -69,7 +69,8 @@ const stripeWebhookHandler = async (req, res) => {
             console.log("[stripeWebhook] Payload recibido bytes:", len);
         }
         catch { }
-        event = (0, service_1.getStripe)().webhooks.constructEvent(req.rawBody, sig, webhookSecret);
+        const stripe = (0, service_1.getStripe)(); // Initialize lazily
+        event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
         console.log("[stripeWebhook] constructEvent OK:", event.type);
     }
     catch (err) {

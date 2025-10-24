@@ -6,18 +6,13 @@ import { STRIPE_SECRET, STRIPE_SUBSCRIPTION_DAYS } from '../config';
 
 // Inicializa el cliente de Stripe con la clave secreta obtenida de forma segura
 // desde la configuración de entorno de Firebase.
-let stripeClient: Stripe | null = null;
-export const getStripe = (): Stripe => {
-  if (!stripeClient) {
-    if (!STRIPE_SECRET) {
-      throw new Error('Missing STRIPE_SECRET');
-    }
-    stripeClient = new Stripe(STRIPE_SECRET, {
-      apiVersion: '2024-06-20' as any, // Usa una versión de API fija y soportada
-      typescript: true,
-    });
+let stripe: Stripe;
+
+export const getStripe = () => {
+  if (!stripe) {
+    stripe = new Stripe(STRIPE_SECRET, { apiVersion: '2024-06-20' as any });
   }
-  return stripeClient;
+  return stripe;
 };
 
 /**
@@ -169,12 +164,29 @@ export const handleStripeWebhook = async (event: Stripe.Event) => {
     case 'payment_intent.succeeded': {
       try {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        const { tripId } = paymentIntent.metadata;
+        const { tripId } = paymentIntent.metadata || {};
         if (tripId) {
-          const paymentRef = db.collection('trips').doc(tripId).collection('payment').doc(paymentIntent.id);
-          await paymentRef.update({ status: 'succeeded', chargeId: paymentIntent.latest_charge });
-          await db.collection('trips').doc(tripId).update({ status: TripStatus.COMPLETED });
-          functions.logger.info(`Viaje ${tripId} marcado como pagado.`);
+          const tripRef = db.collection('trips').doc(tripId);
+          // Guardar subcolección de pagos (idempotente)
+          const paymentRef = tripRef.collection('payment').doc(paymentIntent.id);
+          await paymentRef.set({
+            status: 'succeeded',
+            chargeId: paymentIntent.latest_charge,
+            amount: paymentIntent.amount,
+            currency: paymentIntent.currency,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          }, { merge: true });
+
+          await tripRef.set({
+            paymentStatus: 'paid',
+            paymentMethod: 'card',
+            stripePaymentId: paymentIntent.id,
+            paidAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          } as any, { merge: true });
+          functions.logger.info(`Trip ${tripId} payment recorded from PaymentIntent ${paymentIntent.id}.`);
+        } else {
+          functions.logger.warn('payment_intent.succeeded without tripId metadata');
         }
       } catch (error) {
         functions.logger.error('Error in payment_intent.succeeded:', error);

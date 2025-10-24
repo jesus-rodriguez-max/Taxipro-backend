@@ -66,10 +66,10 @@ const logSafetyEventV2Callable = async (data, context) => {
         throw new https_1.HttpsError('permission-denied', 'Tu cuenta de seguridad está suspendida temporalmente.');
     }
     // 2. Validar límites de uso (rate limiting)
-    const rateLimitMinutes = config_1.SAFETY_RATE_LIMIT_MINUTES;
+    const timeLimit = config_1.SAFETY_RATE_LIMIT_MINUTES * 60 * 1000;
     const dailyLimit = config_1.SAFETY_DAILY_LIMIT;
     const now = admin.firestore.Timestamp.now();
-    const tenMinutesAgo = admin.firestore.Timestamp.fromMillis(now.toMillis() - rateLimitMinutes * 60 * 1000);
+    const tenMinutesAgo = admin.firestore.Timestamp.fromMillis(now.toMillis() - timeLimit);
     const twentyFourHoursAgo = admin.firestore.Timestamp.fromMillis(now.toMillis() - 86400000);
     const recentLogsQuery = db.collectionGroup('safety_logs')
         .where('actorId', '==', userId)
@@ -82,7 +82,7 @@ const logSafetyEventV2Callable = async (data, context) => {
         dailyLogsQuery.get(),
     ]);
     if (!recentLogsSnap.empty) {
-        throw new https_1.HttpsError('resource-exhausted', `Solo puedes enviar una alerta cada ${rateLimitMinutes} minutos.`);
+        throw new https_1.HttpsError('resource-exhausted', `Solo puedes enviar una alerta cada ${config_1.SAFETY_RATE_LIMIT_MINUTES} minutos.`);
     }
     if (dailyLogsSnap.size >= dailyLimit) {
         throw new https_1.HttpsError('resource-exhausted', `Has alcanzado el límite de ${dailyLimit} alertas diarias.`);

@@ -57,8 +57,8 @@ export const syncDriverSubscriptionStatusCallable = async (_data: unknown, conte
 
     const isActive = status === 'active' || status === 'trialing';
     if (!expiresAt) {
-      const days = STRIPE_SUBSCRIPTION_DAYS || 7;
-      expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+      const subscriptionDays = STRIPE_SUBSCRIPTION_DAYS;
+      expiresAt = new Date(Date.now() + subscriptionDays * 24 * 60 * 60 * 1000);
     }
 
     await admin.firestore().collection('drivers').doc(uid).set({

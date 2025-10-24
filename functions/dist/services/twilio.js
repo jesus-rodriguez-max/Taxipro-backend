@@ -42,7 +42,9 @@ async function getTwilioClient() {
         return twilioClient;
     const mod = await Promise.resolve().then(() => __importStar(require('twilio')));
     const twilioFactory = mod?.default ?? mod;
-    twilioClient = twilioFactory(config_1.TWILIO_ACCOUNT_SID, config_1.TWILIO_AUTH_TOKEN);
+    const accountSid = config_1.TWILIO_ACCOUNT_SID;
+    const authToken = config_1.TWILIO_AUTH_TOKEN;
+    twilioClient = twilioFactory(accountSid, authToken);
     return twilioClient;
 }
 const sendWhatsApp = async (to, body) => {

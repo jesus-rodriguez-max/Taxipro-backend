@@ -44,8 +44,13 @@ export const createPassengerCheckoutSessionCallable = async (
   if (trip.passengerId !== userId) {
     throw new functions.https.HttpsError('permission-denied', 'No eres el pasajero de este viaje.');
   }
-  if (trip.status !== TripStatus.PENDING && trip.status !== 'pending') {
-    throw new functions.https.HttpsError('failed-precondition', 'Solo se puede pagar un viaje en estado pending.');
+  if (
+    trip.status !== TripStatus.PENDING &&
+    trip.status !== 'pending' &&
+    trip.status !== TripStatus.ASSIGNED &&
+    trip.status !== 'assigned'
+  ) {
+    throw new functions.https.HttpsError('failed-precondition', 'Solo se puede pagar un viaje en estado pending o assigned.');
   }
   if (trip.paymentStatus === 'paid') {
     return { alreadyPaid: true, message: 'El viaje ya fue pagado.' };
@@ -61,11 +66,16 @@ export const createPassengerCheckoutSessionCallable = async (
     throw new functions.https.HttpsError('invalid-argument', 'El monto es inválido.');
   }
 
-  // Opcionales: customer de Stripe si existe para el usuario
+  // Opcionales: customer de Stripe si existe para el usuario, y PM por defecto
   let customerId: string | undefined;
+  let defaultPaymentMethodId: string | undefined;
   try {
     const userSnap = await db.collection('users').doc(userId).get();
-    customerId = (userSnap.exists ? (userSnap.data() as any)?.stripeCustomerId : undefined) || undefined;
+    if (userSnap.exists) {
+      const u = (userSnap.data() as any) || {};
+      customerId = u.stripeCustomerId || undefined;
+      defaultPaymentMethodId = u.defaultPaymentMethodId || undefined;
+    }
   } catch {}
 
   // Success/cancel URL defaults (se puede mover a config si se define)
@@ -90,10 +100,13 @@ export const createPassengerCheckoutSessionCallable = async (
     cancel_url: cancelUrl,
     metadata: { tripId, userId },
     customer: customerId,
-    payment_intent_data: {
-      transfer_data: { destination: driverStripeId },
-      metadata: { tripId, userId },
-    },
+    payment_intent_data: Object.assign(
+      {
+        transfer_data: { destination: driverStripeId },
+        metadata: { tripId, userId },
+      },
+      defaultPaymentMethodId ? { payment_method: defaultPaymentMethodId } : {}
+    ),
   });
 
   await tripRef.set(

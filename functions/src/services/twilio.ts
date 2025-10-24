@@ -6,7 +6,9 @@ async function getTwilioClient() {
   if (twilioClient) return twilioClient;
   const mod: any = await import('twilio');
   const twilioFactory = mod?.default ?? mod;
-  twilioClient = twilioFactory(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+  const accountSid = TWILIO_ACCOUNT_SID;
+  const authToken = TWILIO_AUTH_TOKEN;
+  twilioClient = twilioFactory(accountSid, authToken);
   return twilioClient;
 }
 
