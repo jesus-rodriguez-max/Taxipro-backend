@@ -1,20 +1,20 @@
-import { https } from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { Trip, TripStatus, GeoPoint } from '../lib/types';
 
 import { log } from '../lib/logging';
 
-export const requestTripCallable = async (data: any, context: https.CallableContext) => {
-  if (!context.auth) {
-    throw new https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+export const requestTripCallable = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'The function must be called while authenticated.');
   }
 
-  const { origin, destination, estimatedDistanceKm, isPhoneRequest } = data;
+  const { origin, destination, estimatedDistanceKm, estimatedDurationMin, isPhoneRequest } = request.data;
 
-  const passengerId = context.auth.uid;
+  const passengerId = request.auth.uid;
 
   if (!origin || !destination || typeof estimatedDistanceKm !== 'number') {
-    throw new https.HttpsError('invalid-argument', 'Missing origin, destination, or estimatedDistanceKm.');
+    throw new HttpsError('invalid-argument', 'Missing origin, destination, or estimatedDistanceKm.');
   }
 
   const firestore = getFirestore();
@@ -27,7 +27,7 @@ export const requestTripCallable = async (data: any, context: https.CallableCont
     .get();
 
   if (!activeTrips.empty) {
-    throw new https.HttpsError('failed-precondition', 'An active trip already exists for this passenger.');
+    throw new HttpsError('failed-precondition', 'An active trip already exists for this passenger.');
   }
 
   // --- Normalizar origen/destino al tipo Trip ---
@@ -38,31 +38,49 @@ export const requestTripCallable = async (data: any, context: https.CallableCont
     if (typeof loc?.lat === 'number' && typeof loc?.lng === 'number') {
       return { point: { lat: loc.lat, lng: loc.lng } as GeoPoint, address: loc.address ?? '' };
     }
-    throw new https.HttpsError('invalid-argument', 'Invalid origin/destination format.');
+    throw new HttpsError('invalid-argument', 'Invalid origin/destination format.');
   };
   const normalizedOrigin = normalize(origin);
   const normalizedDestination = normalize(destination);
 
-  // --- Lógica de Cálculo de Tarifas ---
-  const tariffsDoc = await firestore.collection('fares').doc('tariffs').get();
-  if (!tariffsDoc.exists || !tariffsDoc.data()?.active) {
-    throw new https.HttpsError('unavailable', 'No active tariffs found.');
-  }
-  const tariffs = tariffsDoc.data() as any; // Castear a any para acceso fácil
+  // --- Lógica de Cálculo de Tarifas Oficial (SLP) ---
+  // Defaults si el documento no existe
+  const defaults = {
+    baseFareDay: 21.0,
+    baseFareNight: 25.90,
+    phoneBaseFareDay: 21.0,
+    phoneBaseFareNight: 25.90,
+    advancePrice: 2.025, // MXN por avance
+    advanceSeconds: 39,   // segundos por avance
+    advanceMeters: 250,   // metros por avance
+    currency: 'MXN',
+    active: true,
+  };
+
+  const tariffsSnap = await firestore.collection('fares').doc('tariffs').get();
+  const tariffs = { ...defaults, ...(tariffsSnap.exists ? tariffsSnap.data() : {}) } as any;
 
   const now = new Date();
   const hour = now.getHours();
-  const isDayTime = hour >= 6 && hour < 21; // 6 AM a 9 PM es día
+  // Horario diurno: 06:00 – 20:59, nocturno: 21:00 – 05:59
+  const isDayTime = hour >= 6 && hour <= 20;
 
-  let baseFare = 0;
-  if (isPhoneRequest) {
-    baseFare = isDayTime ? tariffs.phoneBaseFareDay : tariffs.phoneBaseFareNight;
-  } else {
-    baseFare = isDayTime ? tariffs.baseFareDay : tariffs.baseFareNight;
-  }
+  const baseFare = (isPhoneRequest ? (isDayTime ? tariffs.phoneBaseFareDay : tariffs.phoneBaseFareNight)
+                                   : (isDayTime ? tariffs.baseFareDay : tariffs.baseFareNight));
 
-  const distanceCost = estimatedDistanceKm * tariffs.perKm;
-  const totalFare = baseFare + distanceCost; // Simplificado, sin waitingIncrement por ahora
+  const distanceMeters = Math.max(0, Number(estimatedDistanceKm) * 1000);
+  const durationSeconds = Math.max(0, Number(estimatedDurationMin || 0) * 60);
+  const perMeters = Math.max(1, Number(tariffs.advanceMeters));
+  const perSeconds = Math.max(1, Number(tariffs.advanceSeconds));
+  const stepPrice = Number(tariffs.advancePrice);
+
+  // Número de avances cobrables: lo que ocurra primero en cada paso => aproximación por máximo total
+  const byDistance = distanceMeters / perMeters;
+  const byTime = durationSeconds / perSeconds;
+  const advances = Math.ceil(Math.max(byDistance, byTime));
+  const advancesCost = advances * stepPrice;
+
+  const totalFare = baseFare + advancesCost;
 
   const newTrip: Omit<Trip, 'id'> = {
     passengerId,
@@ -73,8 +91,7 @@ export const requestTripCallable = async (data: any, context: https.CallableCont
     isPhoneRequest: isPhoneRequest || false,
     fare: {
       base: baseFare,
-      perKm: tariffs.perKm,
-      distanceCost: distanceCost,
+      distanceCost: advancesCost,
       total: totalFare,
       currency: tariffs.currency,
     },
@@ -89,4 +106,4 @@ export const requestTripCallable = async (data: any, context: https.CallableCont
   await log(tripRef.id, 'Trip requested by passenger', { passengerId, origin, destination, totalFare });
 
   return { tripId: tripRef.id, totalFare };
-};
+});

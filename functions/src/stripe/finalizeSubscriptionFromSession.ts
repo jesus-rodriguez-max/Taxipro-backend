@@ -1,38 +1,34 @@
-import * as functions from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import Stripe from 'stripe';
-import { STRIPE_SECRET, STRIPE_SUBSCRIPTION_DAYS } from '../config';
+import { getStripe } from './service';
+import { STRIPE_SUBSCRIPTION_DAYS } from '../config';
 
 interface FinalizeData {
   sessionId: string;
 }
 
-export const finalizeDriverSubscriptionFromSessionCallable = async (data: FinalizeData, context: functions.https.CallableContext) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Debe iniciar sesión.');
+export const finalizeDriverSubscriptionFromSessionCallable = onCall({ secrets: ['STRIPE_SECRET'] }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Debe iniciar sesión.');
   }
-  const uid = context.auth.uid;
-  const sessionId = (data?.sessionId || '').trim();
-  if (!sessionId) {
-    throw new functions.https.HttpsError('invalid-argument', 'sessionId es requerido.');
-  }
-
-  const stripeSecret = STRIPE_SECRET;
-  if (!stripeSecret) {
-    throw new functions.https.HttpsError('failed-precondition', 'Stripe secret no configurado.');
+  const uid = request.auth.uid;
+  const { sessionId } = request.data as FinalizeData;
+  if (!sessionId || !sessionId.trim()) {
+    throw new HttpsError('invalid-argument', 'sessionId es requerido.');
   }
 
-  const stripe = new Stripe(stripeSecret, { apiVersion: '2024-06-20' as any });
+  const stripe = getStripe();
 
   try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await stripe.checkout.sessions.retrieve(sessionId.trim());
     if (!session) {
-      throw new functions.https.HttpsError('not-found', 'Sesión no encontrada en Stripe.');
+      throw new HttpsError('not-found', 'Sesión no encontrada en Stripe.');
     }
 
     const clientRef = (session.client_reference_id as string) || '';
     if (!clientRef || clientRef !== uid) {
-      throw new functions.https.HttpsError('permission-denied', 'La sesión no corresponde a este usuario.');
+      throw new HttpsError('permission-denied', 'La sesión no corresponde a este usuario.');
     }
 
     // Validar estado de la sesión
@@ -83,7 +79,7 @@ export const finalizeDriverSubscriptionFromSessionCallable = async (data: Finali
     };
   } catch (error: any) {
     console.error('[finalizeSubscription] Error:', error);
-    if (error instanceof functions.https.HttpsError) throw error;
-    throw new functions.https.HttpsError('internal', error?.message || 'Error al finalizar la suscripción.');
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError('internal', error?.message || 'Error al finalizar la suscripción.');
   }
-};
+});

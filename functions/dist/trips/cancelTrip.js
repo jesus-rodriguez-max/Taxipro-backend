@@ -44,12 +44,13 @@ const PENALTY_FARE = 5000; // Ejemplo: 50.00 MXN en centavos
  * Función invocable para que un pasajero cancele un viaje.
  * Aplica una penalización si es necesario.
  */
-const cancelTripCallable = async (data, context) => {
-    if (!context.auth) {
+const https_2 = require("firebase-functions/v2/https");
+exports.cancelTripCallable = (0, https_2.onCall)(async (request) => {
+    if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'El usuario no está autenticado.');
     }
-    const passengerId = context.auth.uid;
-    const { tripId } = data;
+    const passengerId = request.auth.uid;
+    const { tripId } = request.data;
     const tripRef = admin.firestore().collection('trips').doc(tripId);
     const userRef = admin.firestore().collection('users').doc(passengerId);
     const tripDoc = await tripRef.get();
@@ -114,6 +115,5 @@ const cancelTripCallable = async (data, context) => {
         });
         return { success: true, message: 'Viaje cancelado gratuitamente.' };
     }
-};
-exports.cancelTripCallable = cancelTripCallable;
+});
 //# sourceMappingURL=cancelTrip.js.map

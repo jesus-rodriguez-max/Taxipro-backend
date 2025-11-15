@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin';
-import { HttpsError } from 'firebase-functions/v2/https';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 
 interface TrustedContact {
   name: string;
@@ -17,13 +17,13 @@ interface UpdateSafetyConsentsData {
 /**
  * Actualiza la lista de contactos de confianza de un usuario.
  */
-export const updateTrustedContactsCallable = async (data: UpdateTrustedContactsData, context: any) => {
-  if (!context.auth) {
+export const updateTrustedContactsCallable = onCall(async (request) => {
+  if (!request.auth) {
     throw new HttpsError('unauthenticated', 'El usuario no está autenticado.');
   }
 
-  const uid = context.auth.uid;
-  const { contacts } = data;
+  const uid = request.auth.uid;
+  const { contacts } = request.data as UpdateTrustedContactsData;
 
   // Validación básica de datos
   if (!Array.isArray(contacts) || contacts.length > 5) {
@@ -43,18 +43,18 @@ export const updateTrustedContactsCallable = async (data: UpdateTrustedContactsD
   }, { merge: true });
 
   return { success: true, message: 'Contactos de confianza actualizados.' };
-};
+});
 
 /**
  * Actualiza los consentimientos de seguridad de un usuario.
  */
-export const updateSafetyConsentsCallable = async (data: UpdateSafetyConsentsData, context: any) => {
-  if (!context.auth) {
+export const updateSafetyConsentsCallable = onCall(async (request) => {
+  if (!request.auth) {
     throw new HttpsError('unauthenticated', 'El usuario no está autenticado.');
   }
 
-  const uid = context.auth.uid;
-  const { hasConsentedToAudioRecording } = data;
+  const uid = request.auth.uid;
+  const { hasConsentedToAudioRecording } = request.data as UpdateSafetyConsentsData;
 
   if (typeof hasConsentedToAudioRecording !== 'boolean') {
     throw new HttpsError('invalid-argument', 'El consentimiento debe ser un valor booleano.');
@@ -68,4 +68,4 @@ export const updateSafetyConsentsCallable = async (data: UpdateSafetyConsentsDat
   }, { merge: true });
 
   return { success: true, message: 'Consentimientos de seguridad actualizados.' };
-};
+});

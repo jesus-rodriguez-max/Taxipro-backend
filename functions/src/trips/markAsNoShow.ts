@@ -13,13 +13,15 @@ interface MarkAsNoShowData {
 /**
  * Función invocable para que un chofer marque que el pasajero no se presentó.
  */
-export const markAsNoShowCallable = async (data: MarkAsNoShowData, context: any) => {
-  if (!context.auth) {
+import { onCall } from 'firebase-functions/v2/https';
+
+export const markAsNoShowCallable = onCall(async (request) => {
+  if (!request.auth) {
     throw new HttpsError('unauthenticated', 'El usuario no está autenticado.');
   }
 
-  const driverId = context.auth.uid;
-  const { tripId } = data;
+  const driverId = request.auth.uid;
+  const { tripId } = request.data as MarkAsNoShowData;
   const tripRef = admin.firestore().collection('trips').doc(tripId);
 
   const tripDoc = await tripRef.get();
@@ -73,4 +75,4 @@ export const markAsNoShowCallable = async (data: MarkAsNoShowData, context: any)
     });
     return { success: true, message: 'Pasajero marcado como no presentado. Se añadió penalización a su saldo pendiente.' };
   }
-};
+});

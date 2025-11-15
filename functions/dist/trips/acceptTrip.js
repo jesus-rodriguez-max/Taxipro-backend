@@ -1,73 +1,38 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.acceptTripCallable = void 0;
-const functions = __importStar(require("firebase-functions"));
+const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-admin/firestore");
 const types_1 = require("../lib/types");
 const subscription_1 = require("../lib/subscription");
 const logging_1 = require("../lib/logging");
 /**
  * Callable that allows a driver to accept a pending trip.
- * @param data expects an object { tripId: string }
- * @param context firebase context with auth
  */
-const acceptTripCallable = async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+exports.acceptTripCallable = (0, https_1.onCall)(async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
-    const driverId = context.auth.uid;
-    const { tripId } = data;
+    const driverId = request.auth.uid;
+    const { tripId } = request.data;
     if (!tripId) {
-        throw new functions.https.HttpsError('invalid-argument', 'Missing tripId.');
+        throw new https_1.HttpsError('invalid-argument', 'Missing tripId.');
     }
     // Check if driver has an active subscription or free trial
     const isActive = await (0, subscription_1.isDriverSubscriptionActive)(driverId);
     if (!isActive) {
-        throw new functions.https.HttpsError('permission-denied', 'Driver does not have an active subscription.');
+        throw new https_1.HttpsError('permission-denied', 'Driver does not have an active subscription.');
     }
     const firestore = (0, firestore_1.getFirestore)();
     const tripRef = firestore.collection('trips').doc(tripId);
     const tripDoc = await tripRef.get();
     if (!tripDoc.exists) {
-        throw new functions.https.HttpsError('not-found', 'Trip not found.');
+        throw new https_1.HttpsError('not-found', 'Trip not found.');
     }
     const trip = tripDoc.data();
     // Only allow accepting trips that are requested/pending
     if (trip.status && trip.status !== types_1.TripStatus.PENDING && trip.status !== 'pending') {
-        throw new functions.https.HttpsError('failed-precondition', 'Trip cannot be accepted in its current status.');
+        throw new https_1.HttpsError('failed-precondition', 'Trip cannot be accepted in its current status.');
     }
     // Assign driver and update status to assigned
     await tripRef.update({
@@ -83,6 +48,5 @@ const acceptTripCallable = async (data, context) => {
         tripId,
         status: types_1.TripStatus.ASSIGNED ?? 'assigned',
     };
-};
-exports.acceptTripCallable = acceptTripCallable;
+});
 //# sourceMappingURL=acceptTrip.js.map

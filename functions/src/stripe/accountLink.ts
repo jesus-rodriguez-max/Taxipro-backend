@@ -1,29 +1,26 @@
-import * as functions from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
-import Stripe from 'stripe';
-import { STRIPE_SECRET, STRIPE_ONBOARDING_RETURN_URL, STRIPE_ONBOARDING_REFRESH_URL } from '../config';
-
-// Stripe will be initialized lazily inside the function using STRIPE_SECRET from config
+import { getStripe } from './service';
+import { STRIPE_ONBOARDING_RETURN_URL, STRIPE_ONBOARDING_REFRESH_URL } from '../config';
 
 /**
  * Creates a Stripe Express account for a driver and returns an onboarding link.
  */
-export const createStripeAccountLink = async (data: any, context: functions.https.CallableContext) => {
+export const createStripeAccountLink = onCall({ secrets: ['STRIPE_SECRET'] }, async (request) => {
   // 1. Check for authentication
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'You must be logged in to create a Stripe account.');
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'You must be logged in to create a Stripe account.');
   }
-  const uid = context.auth.uid;
+  const uid = request.auth.uid;
+  const data = request.data;
   const driverRef = admin.firestore().collection('drivers').doc(uid);
 
   try {
-    const stripe = new Stripe(STRIPE_SECRET, {
-      apiVersion: '2024-06-20' as any,
-    });
+    const stripe = getStripe();
 
     const driverDoc = await driverRef.get();
     if (!driverDoc.exists) {
-      throw new functions.https.HttpsError('not-found', 'Driver profile not found.');
+      throw new HttpsError('not-found', 'Driver profile not found.');
     }
 
     let accountId = driverDoc.data()?.stripeAccountId;
@@ -32,7 +29,7 @@ export const createStripeAccountLink = async (data: any, context: functions.http
     if (!accountId) {
       const account = await stripe.accounts.create({
         type: 'express',
-        email: context.auth.token.email || undefined,
+        email: request.auth.token.email || undefined,
         country: 'MX', // Assuming Mexico, configure as needed
         capabilities: {
           card_payments: { requested: true },
@@ -60,9 +57,9 @@ export const createStripeAccountLink = async (data: any, context: functions.http
 
   } catch (error) {
     console.error('Error creating Stripe account link:', error);
-    if (error instanceof functions.https.HttpsError) {
+    if (error instanceof HttpsError) {
       throw error;
     }
-    throw new functions.https.HttpsError('internal', 'An unexpected error occurred while creating the Stripe link.');
+    throw new HttpsError('internal', 'An unexpected error occurred while creating the Stripe link.');
   }
-};
+});

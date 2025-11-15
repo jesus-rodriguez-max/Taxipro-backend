@@ -1,6 +1,5 @@
-import * as functions from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
-import { HttpsError } from 'firebase-functions/v1/https';
 import { Trip, TripStatus } from '../lib/types';
 import { getStripe } from '../stripe/service';
 import { TRIPS_PENALTY_AMOUNT } from '../config';
@@ -9,13 +8,13 @@ interface CancelTripWithPenaltyData {
   tripId: string;
 }
 
-export const cancelTripWithPenaltyCallable = async (data: CancelTripWithPenaltyData, context: functions.https.CallableContext) => {
-  if (!context.auth || !context.auth.token.role) {
+export const cancelTripWithPenaltyCallable = onCall({ secrets: ['STRIPE_SECRET'] }, async (request) => {
+  if (!request.auth || !request.auth.token.role) {
     throw new HttpsError('unauthenticated', 'El usuario debe ser un conductor autenticado.');
   }
 
-  const { tripId } = data;
-  const driverId = context.auth.uid;
+  const { tripId } = request.data as CancelTripWithPenaltyData;
+  const driverId = request.auth.uid;
   const penaltyAmount: number = TRIPS_PENALTY_AMOUNT; // centavos
   const db = admin.firestore();
 
@@ -104,4 +103,4 @@ export const cancelTripWithPenaltyCallable = async (data: CancelTripWithPenaltyD
 
     return { status: 'success', message: 'Viaje cancelado sin penalización.' };
   }
-};
+});

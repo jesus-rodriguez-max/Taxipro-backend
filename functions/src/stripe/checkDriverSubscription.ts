@@ -1,11 +1,11 @@
-import * as functions from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { isDriverSubscriptionActive } from '../lib/subscription';
 
-export const checkDriverSubscriptionCallable = async (_data: unknown, context: functions.https.CallableContext) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Debe iniciar sesión.');
+export const checkDriverSubscriptionCallable = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Debe iniciar sesión.');
   }
-  const driverId = context.auth.uid;
+  const driverId = request.auth.uid;
   const active = await isDriverSubscriptionActive(driverId);
   return { active };
-};
+});

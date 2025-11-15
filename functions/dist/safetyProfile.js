@@ -39,12 +39,12 @@ const https_1 = require("firebase-functions/v2/https");
 /**
  * Actualiza la lista de contactos de confianza de un usuario.
  */
-const updateTrustedContactsCallable = async (data, context) => {
-    if (!context.auth) {
+exports.updateTrustedContactsCallable = (0, https_1.onCall)(async (request) => {
+    if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'El usuario no está autenticado.');
     }
-    const uid = context.auth.uid;
-    const { contacts } = data;
+    const uid = request.auth.uid;
+    const { contacts } = request.data;
     // Validación básica de datos
     if (!Array.isArray(contacts) || contacts.length > 5) {
         throw new https_1.HttpsError('invalid-argument', 'Debes proporcionar un array de hasta 5 contactos.');
@@ -60,17 +60,16 @@ const updateTrustedContactsCallable = async (data, context) => {
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
     return { success: true, message: 'Contactos de confianza actualizados.' };
-};
-exports.updateTrustedContactsCallable = updateTrustedContactsCallable;
+});
 /**
  * Actualiza los consentimientos de seguridad de un usuario.
  */
-const updateSafetyConsentsCallable = async (data, context) => {
-    if (!context.auth) {
+exports.updateSafetyConsentsCallable = (0, https_1.onCall)(async (request) => {
+    if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'El usuario no está autenticado.');
     }
-    const uid = context.auth.uid;
-    const { hasConsentedToAudioRecording } = data;
+    const uid = request.auth.uid;
+    const { hasConsentedToAudioRecording } = request.data;
     if (typeof hasConsentedToAudioRecording !== 'boolean') {
         throw new https_1.HttpsError('invalid-argument', 'El consentimiento debe ser un valor booleano.');
     }
@@ -80,6 +79,5 @@ const updateSafetyConsentsCallable = async (data, context) => {
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
     return { success: true, message: 'Consentimientos de seguridad actualizados.' };
-};
-exports.updateSafetyConsentsCallable = updateSafetyConsentsCallable;
+});
 //# sourceMappingURL=safetyProfile.js.map

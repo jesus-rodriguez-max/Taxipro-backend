@@ -32,25 +32,23 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createDriverAccountCallable = void 0;
 const admin = __importStar(require("firebase-admin"));
-const functions = __importStar(require("firebase-functions"));
-const stripe_1 = __importDefault(require("stripe"));
+const https_1 = require("firebase-functions/v2/https");
+const service_1 = require("./service");
 const config_1 = require("../config");
-const createDriverAccountCallable = async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'Debe iniciar sesión.');
+exports.createDriverAccountCallable = (0, https_1.onCall)({ secrets: ['STRIPE_SECRET'] }, async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'Debe iniciar sesión.');
     }
-    const driverId = context.auth.uid;
-    const stripe = new stripe_1.default(config_1.STRIPE_SECRET, { apiVersion: '2024-06-20' });
+    const driverId = request.auth.uid;
+    const data = request.data;
+    const stripe = (0, service_1.getStripe)();
     const driverRef = admin.firestore().collection('drivers').doc(driverId);
     const snap = await driverRef.get();
     if (!snap.exists) {
-        throw new functions.https.HttpsError('failed-precondition', 'Solo los conductores pueden crear cuenta.');
+        throw new https_1.HttpsError('failed-precondition', 'Solo los conductores pueden crear cuenta.');
     }
     const driverData = snap.data() || {};
     let stripeAccountId = driverData.stripeAccountId;
@@ -80,6 +78,5 @@ const createDriverAccountCallable = async (data, context) => {
         type: 'account_onboarding',
     });
     return { accountId: stripeAccountId, url: link.url };
-};
-exports.createDriverAccountCallable = createDriverAccountCallable;
+});
 //# sourceMappingURL=createDriverAccount.js.map

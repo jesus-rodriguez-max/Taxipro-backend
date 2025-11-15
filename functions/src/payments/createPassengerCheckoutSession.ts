@@ -1,4 +1,4 @@
-import * as functions from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import { getStripe } from '../stripe/service';
 import { TripStatus } from '../constants/tripStatus';
@@ -18,31 +18,28 @@ interface CreatePassengerCheckoutInput {
  *
  * Returns the session URL to redirect the passenger.
  */
-export const createPassengerCheckoutSessionCallable = async (
-  data: CreatePassengerCheckoutInput,
-  context: functions.https.CallableContext
-) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'El usuario debe estar autenticado.');
+export const createPassengerCheckoutSessionCallable = onCall({ secrets: ['STRIPE_SECRET'] }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'El usuario debe estar autenticado.');
   }
 
-  const { tripId, amount, driverStripeId, userId } = data || ({} as any);
+  const { tripId, amount, driverStripeId, userId } = request.data as CreatePassengerCheckoutInput;
   if (!tripId || !amount || !driverStripeId || !userId) {
-    throw new functions.https.HttpsError('invalid-argument', 'Faltan parámetros obligatorios: tripId, amount, driverStripeId, userId');
+    throw new HttpsError('invalid-argument', 'Faltan parámetros obligatorios: tripId, amount, driverStripeId, userId');
   }
-  if (context.auth.uid !== userId) {
-    throw new functions.https.HttpsError('permission-denied', 'No puedes crear pago para otro usuario.');
+  if (request.auth.uid !== userId) {
+    throw new HttpsError('permission-denied', 'No puedes crear pago para otro usuario.');
   }
 
   const db = admin.firestore();
   const tripRef = db.collection('trips').doc(tripId);
   const tripSnap = await tripRef.get();
   if (!tripSnap.exists) {
-    throw new functions.https.HttpsError('not-found', 'El viaje no existe.');
+    throw new HttpsError('not-found', 'El viaje no existe.');
   }
   const trip = tripSnap.data() as any;
   if (trip.passengerId !== userId) {
-    throw new functions.https.HttpsError('permission-denied', 'No eres el pasajero de este viaje.');
+    throw new HttpsError('permission-denied', 'No eres el pasajero de este viaje.');
   }
   if (
     trip.status !== TripStatus.PENDING &&
@@ -50,7 +47,7 @@ export const createPassengerCheckoutSessionCallable = async (
     trip.status !== TripStatus.ASSIGNED &&
     trip.status !== 'assigned'
   ) {
-    throw new functions.https.HttpsError('failed-precondition', 'Solo se puede pagar un viaje en estado pending o assigned.');
+    throw new HttpsError('failed-precondition', 'Solo se puede pagar un viaje en estado pending o assigned.');
   }
   if (trip.paymentStatus === 'paid') {
     return { alreadyPaid: true, message: 'El viaje ya fue pagado.' };
@@ -63,7 +60,7 @@ export const createPassengerCheckoutSessionCallable = async (
   // Convertir a centavos (MXN)
   const amountInCents = Math.round(Number(amount) * 100);
   if (!Number.isFinite(amountInCents) || amountInCents <= 0) {
-    throw new functions.https.HttpsError('invalid-argument', 'El monto es inválido.');
+    throw new HttpsError('invalid-argument', 'El monto es inválido.');
   }
 
   // Opcionales: customer de Stripe si existe para el usuario, y PM por defecto
@@ -121,4 +118,4 @@ export const createPassengerCheckoutSessionCallable = async (
   );
 
   return { sessionId: session.id, url: session.url };
-};
+});

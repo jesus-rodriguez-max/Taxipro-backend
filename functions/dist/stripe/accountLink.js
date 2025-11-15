@@ -32,40 +32,35 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createStripeAccountLink = void 0;
-const functions = __importStar(require("firebase-functions"));
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
-const stripe_1 = __importDefault(require("stripe"));
+const service_1 = require("./service");
 const config_1 = require("../config");
-// Stripe will be initialized lazily inside the function using STRIPE_SECRET from config
 /**
  * Creates a Stripe Express account for a driver and returns an onboarding link.
  */
-const createStripeAccountLink = async (data, context) => {
+exports.createStripeAccountLink = (0, https_1.onCall)({ secrets: ['STRIPE_SECRET'] }, async (request) => {
     // 1. Check for authentication
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'You must be logged in to create a Stripe account.');
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'You must be logged in to create a Stripe account.');
     }
-    const uid = context.auth.uid;
+    const uid = request.auth.uid;
+    const data = request.data;
     const driverRef = admin.firestore().collection('drivers').doc(uid);
     try {
-        const stripe = new stripe_1.default(config_1.STRIPE_SECRET, {
-            apiVersion: '2024-06-20',
-        });
+        const stripe = (0, service_1.getStripe)();
         const driverDoc = await driverRef.get();
         if (!driverDoc.exists) {
-            throw new functions.https.HttpsError('not-found', 'Driver profile not found.');
+            throw new https_1.HttpsError('not-found', 'Driver profile not found.');
         }
         let accountId = driverDoc.data()?.stripeAccountId;
         // 2. Create a Stripe account if it doesn't exist
         if (!accountId) {
             const account = await stripe.accounts.create({
                 type: 'express',
-                email: context.auth.token.email || undefined,
+                email: request.auth.token.email || undefined,
                 country: 'MX', // Assuming Mexico, configure as needed
                 capabilities: {
                     card_payments: { requested: true },
@@ -90,11 +85,10 @@ const createStripeAccountLink = async (data, context) => {
     }
     catch (error) {
         console.error('Error creating Stripe account link:', error);
-        if (error instanceof functions.https.HttpsError) {
+        if (error instanceof https_1.HttpsError) {
             throw error;
         }
-        throw new functions.https.HttpsError('internal', 'An unexpected error occurred while creating the Stripe link.');
+        throw new https_1.HttpsError('internal', 'An unexpected error occurred while creating the Stripe link.');
     }
-};
-exports.createStripeAccountLink = createStripeAccountLink;
+});
 //# sourceMappingURL=accountLink.js.map

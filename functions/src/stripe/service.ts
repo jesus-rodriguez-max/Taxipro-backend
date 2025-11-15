@@ -2,15 +2,15 @@ import Stripe from 'stripe';
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { TripStatus, DriverMembershipStatus } from '../lib/types';
-import { STRIPE_SECRET, STRIPE_SUBSCRIPTION_DAYS } from '../config';
+import { STRIPE_SUBSCRIPTION_DAYS, STRIPE_SECRET, STRIPE_API_VERSION } from '../config';
 
-// Inicializa el cliente de Stripe con la clave secreta obtenida de forma segura
-// desde la configuración de entorno de Firebase.
+// Variable para cachear la instancia de Stripe
+
 let stripe: Stripe;
 
 export const getStripe = () => {
   if (!stripe) {
-    stripe = new Stripe(STRIPE_SECRET, { apiVersion: '2024-06-20' as any });
+    stripe = new Stripe(STRIPE_SECRET, { apiVersion: STRIPE_API_VERSION as any });
   }
   return stripe;
 };
@@ -190,6 +190,43 @@ export const handleStripeWebhook = async (event: Stripe.Event) => {
         }
       } catch (error) {
         functions.logger.error('Error in payment_intent.succeeded:', error);
+      }
+      break;
+    }
+    case 'charge.succeeded': {
+      try {
+        const charge = event.data.object as Stripe.Charge;
+        const piId = (charge.payment_intent as string) || '';
+        if (!piId) {
+          functions.logger.warn('charge.succeeded without payment_intent');
+          break;
+        }
+        const stripe = getStripe();
+        const pi = await stripe.paymentIntents.retrieve(piId);
+        const tripId = (pi.metadata as any)?.tripId as string | undefined;
+        if (tripId) {
+          const db = admin.firestore();
+          const tripRef = db.collection('trips').doc(tripId);
+          await tripRef.collection('payment').doc(piId).set({
+            status: 'succeeded',
+            chargeId: charge.id,
+            amount: charge.amount,
+            currency: charge.currency,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          }, { merge: true });
+          await tripRef.set({
+            paymentStatus: 'paid',
+            paymentMethod: 'card',
+            stripePaymentId: piId,
+            paidAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          } as any, { merge: true });
+          functions.logger.info(`Trip ${tripId} marked paid from charge ${charge.id}.`);
+        } else {
+          functions.logger.warn('charge.succeeded but no tripId in PI metadata');
+        }
+      } catch (error) {
+        functions.logger.error('Error in charge.succeeded:', error);
       }
       break;
     }

@@ -34,21 +34,18 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.suspendDriverCallable = void 0;
-const functions = __importStar(require("firebase-functions"));
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 /**
  * Permite a un administrador suspender a un conductor.
- * @param {object} data - Datos de la llamada, debe contener `driverId`.
- * @param {functions.https.CallableContext} context - Contexto de la función.
- * @returns {Promise<{status: string}>} - Estado de la operación.
  */
-const suspendDriverCallable = async (data, context) => {
-    if (!context.auth || context.auth.token.role !== 'admin') {
-        throw new functions.https.HttpsError('permission-denied', 'Solo los administradores pueden suspender a un conductor.');
+exports.suspendDriverCallable = (0, https_1.onCall)(async (request) => {
+    if (!request.auth || request.auth.token.role !== 'admin') {
+        throw new https_1.HttpsError('permission-denied', 'Solo los administradores pueden suspender a un conductor.');
     }
-    const { driverId } = data;
+    const { driverId } = request.data;
     if (!driverId) {
-        throw new functions.https.HttpsError('invalid-argument', 'Se requiere el `driverId`.');
+        throw new https_1.HttpsError('invalid-argument', 'Se requiere el `driverId`.');
     }
     try {
         const driverRef = admin.firestore().collection('drivers').doc(driverId);
@@ -58,8 +55,7 @@ const suspendDriverCallable = async (data, context) => {
     }
     catch (error) {
         console.error('Error al suspender al conductor:', error);
-        throw new functions.https.HttpsError('internal', 'No se pudo suspender al conductor.', error.message);
+        throw new https_1.HttpsError('internal', 'No se pudo suspender al conductor.', error.message);
     }
-};
-exports.suspendDriverCallable = suspendDriverCallable;
+});
 //# sourceMappingURL=suspendDriver.js.map

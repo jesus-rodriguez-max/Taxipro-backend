@@ -20,12 +20,14 @@ interface UpdateTripData {
 /**
  * Gestiona todas las actualizaciones de un viaje: cambio de estado, taxímetro, etc.
  */
-export const updateTripStatusCallable = async (data: UpdateTripData, context: any) => {
-  if (!context.auth) {
+import { onCall } from 'firebase-functions/v2/https';
+
+export const updateTripStatusCallable = onCall(async (request) => {
+  if (!request.auth) {
     throw new HttpsError('unauthenticated', 'El usuario no está autenticado.');
   }
 
-  const { tripId, newStatus, currentLocation, newDestination, newStop } = data;
+  const { tripId, newStatus, currentLocation, newDestination, newStop } = request.data as UpdateTripData;
   const tripRef = admin.firestore().collection('trips').doc(tripId);
   const tripDoc = await tripRef.get();
   if (!tripDoc.exists) {
@@ -65,7 +67,7 @@ export const updateTripStatusCallable = async (data: UpdateTripData, context: an
 
   await batch.commit();
   return response;
-};
+});
 
 // --- Lógica Modularizada ---
 

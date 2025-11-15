@@ -34,17 +34,17 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.cancelTripWithPenaltyCallable = void 0;
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
-const https_1 = require("firebase-functions/v1/https");
 const types_1 = require("../lib/types");
 const service_1 = require("../stripe/service");
 const config_1 = require("../config");
-const cancelTripWithPenaltyCallable = async (data, context) => {
-    if (!context.auth || !context.auth.token.role) {
+exports.cancelTripWithPenaltyCallable = (0, https_1.onCall)({ secrets: ['STRIPE_SECRET'] }, async (request) => {
+    if (!request.auth || !request.auth.token.role) {
         throw new https_1.HttpsError('unauthenticated', 'El usuario debe ser un conductor autenticado.');
     }
-    const { tripId } = data;
-    const driverId = context.auth.uid;
+    const { tripId } = request.data;
+    const driverId = request.auth.uid;
     const penaltyAmount = config_1.TRIPS_PENALTY_AMOUNT; // centavos
     const db = admin.firestore();
     const tripRef = db.collection('trips').doc(tripId);
@@ -125,6 +125,5 @@ const cancelTripWithPenaltyCallable = async (data, context) => {
         });
         return { status: 'success', message: 'Viaje cancelado sin penalización.' };
     }
-};
-exports.cancelTripWithPenaltyCallable = cancelTripWithPenaltyCallable;
+});
 //# sourceMappingURL=cancelTripWithPenalty.js.map

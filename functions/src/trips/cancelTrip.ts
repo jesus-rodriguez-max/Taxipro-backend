@@ -14,13 +14,15 @@ interface CancelTripData {
  * Función invocable para que un pasajero cancele un viaje.
  * Aplica una penalización si es necesario.
  */
-export const cancelTripCallable = async (data: CancelTripData, context: any) => {
-  if (!context.auth) {
+import { onCall } from 'firebase-functions/v2/https';
+
+export const cancelTripCallable = onCall(async (request) => {
+  if (!request.auth) {
     throw new HttpsError('unauthenticated', 'El usuario no está autenticado.');
   }
 
-  const passengerId = context.auth.uid;
-  const { tripId } = data;
+  const passengerId = request.auth.uid;
+  const { tripId } = request.data as CancelTripData;
   const tripRef = admin.firestore().collection('trips').doc(tripId);
   const userRef = admin.firestore().collection('users').doc(passengerId);
 
@@ -89,4 +91,4 @@ export const cancelTripCallable = async (data: CancelTripData, context: any) => 
     });
     return { success: true, message: 'Viaje cancelado gratuitamente.' };
   }
-};
+});

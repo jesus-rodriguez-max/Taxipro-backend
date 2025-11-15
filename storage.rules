@@ -20,5 +20,10 @@ service firebase.storage {
       allow read: if isAdminOrCompliance(database);
       allow update, delete: if false; // Inmutable
     }
+
+    match /support_audio/{uid}/{allPaths=**} {
+      allow write: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }

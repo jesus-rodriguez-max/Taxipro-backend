@@ -1,20 +1,17 @@
-import * as functions from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 
 /**
  * Genera una URL firmada para descargar el audio de un viaje.
- * @param {object} data - Datos de la llamada, debe contener `filePath`.
- * @param {functions.https.CallableContext} context - Contexto de la función.
- * @returns {Promise<{downloadUrl: string}>} - URL de descarga.
  */
-export const downloadTripAudioCallable = async (data: any, context: functions.https.CallableContext) => {
-  if (!context.auth || context.auth.token.role !== 'admin') {
-    throw new functions.https.HttpsError('permission-denied', 'Solo los administradores pueden descargar audios.');
+export const downloadTripAudioCallable = onCall(async (request) => {
+  if (!request.auth || request.auth.token.role !== 'admin') {
+    throw new HttpsError('permission-denied', 'Solo los administradores pueden descargar audios.');
   }
 
-  const { filePath } = data;
+  const { filePath } = request.data;
   if (!filePath) {
-    throw new functions.https.HttpsError('invalid-argument', 'Se requiere la ruta del archivo.');
+    throw new HttpsError('invalid-argument', 'Se requiere la ruta del archivo.');
   }
 
   try {
@@ -27,6 +24,6 @@ export const downloadTripAudioCallable = async (data: any, context: functions.ht
     return { downloadUrl: url };
   } catch (error: any) {
     console.error('Error al generar la URL de descarga:', error);
-    throw new functions.https.HttpsError('internal', 'No se pudo generar la URL de descarga.', error.message);
+    throw new HttpsError('internal', 'No se pudo generar la URL de descarga.', error.message);
   }
-};
+});

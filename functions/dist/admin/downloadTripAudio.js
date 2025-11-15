@@ -34,21 +34,18 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.downloadTripAudioCallable = void 0;
-const functions = __importStar(require("firebase-functions"));
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 /**
  * Genera una URL firmada para descargar el audio de un viaje.
- * @param {object} data - Datos de la llamada, debe contener `filePath`.
- * @param {functions.https.CallableContext} context - Contexto de la función.
- * @returns {Promise<{downloadUrl: string}>} - URL de descarga.
  */
-const downloadTripAudioCallable = async (data, context) => {
-    if (!context.auth || context.auth.token.role !== 'admin') {
-        throw new functions.https.HttpsError('permission-denied', 'Solo los administradores pueden descargar audios.');
+exports.downloadTripAudioCallable = (0, https_1.onCall)(async (request) => {
+    if (!request.auth || request.auth.token.role !== 'admin') {
+        throw new https_1.HttpsError('permission-denied', 'Solo los administradores pueden descargar audios.');
     }
-    const { filePath } = data;
+    const { filePath } = request.data;
     if (!filePath) {
-        throw new functions.https.HttpsError('invalid-argument', 'Se requiere la ruta del archivo.');
+        throw new https_1.HttpsError('invalid-argument', 'Se requiere la ruta del archivo.');
     }
     try {
         const bucket = admin.storage().bucket();
@@ -61,8 +58,7 @@ const downloadTripAudioCallable = async (data, context) => {
     }
     catch (error) {
         console.error('Error al generar la URL de descarga:', error);
-        throw new functions.https.HttpsError('internal', 'No se pudo generar la URL de descarga.', error.message);
+        throw new https_1.HttpsError('internal', 'No se pudo generar la URL de descarga.', error.message);
     }
-};
-exports.downloadTripAudioCallable = downloadTripAudioCallable;
+});
 //# sourceMappingURL=downloadTripAudio.js.map

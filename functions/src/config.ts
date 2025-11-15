@@ -10,6 +10,7 @@ export const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY ?? '';
 export const STRIPE_ONBOARDING_REFRESH_URL = process.env.STRIPE_ONBOARDING_REFRESH_URL ?? 'https://taxipro.mx/stripe/onboarding/retry';
 export const STRIPE_ONBOARDING_RETURN_URL = process.env.STRIPE_ONBOARDING_RETURN_URL ?? 'https://taxipro.mx/stripe/onboarding/complete';
 export const STRIPE_SUBSCRIPTION_DAYS = Number(process.env.STRIPE_SUBSCRIPTION_DAYS ?? 7);
+export const STRIPE_API_VERSION = '2024-04-10';
 
 // Twilio
 export const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID ?? '';

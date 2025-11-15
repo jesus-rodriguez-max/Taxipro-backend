@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin';
-import { HttpsError } from 'firebase-functions/v2/https';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 
 interface OnboardingData {
   clabe?: string;
@@ -10,14 +10,14 @@ interface OnboardingData {
  * Función invocable para que un chofer envíe sus datos de pago (CLABE o Stripe).
  * Un chofer no puede ser aprobado hasta que este paso se complete.
  */
-export const updateDriverOnboardingCallable = async (data: OnboardingData, context: any) => {
+export const updateDriverOnboardingCallable = onCall(async (request) => {
   // 1. Validar autenticación
-  if (!context.auth) {
+  if (!request.auth) {
     throw new HttpsError('unauthenticated', 'El usuario no está autenticado.');
   }
 
-  const driverId = context.auth.uid;
-  const { clabe, stripeAccountToken } = data;
+  const driverId = request.auth.uid;
+  const { clabe, stripeAccountToken } = request.data as OnboardingData;
 
   // 2. Validar que al menos uno de los dos campos esté presente
   if (!clabe && !stripeAccountToken) {
@@ -53,4 +53,4 @@ export const updateDriverOnboardingCallable = async (data: OnboardingData, conte
     console.error('Error al actualizar los datos de pago del chofer:', error);
     throw new HttpsError('internal', 'Ocurrió un error al guardar la información.');
   }
-};
+});

@@ -1,138 +1,180 @@
 rules_version = '2';
 service cloud.firestore {
-  match /databases/{database}/documents {
-    // Helper functions for roles
-    function hasAdminRole() {
-      return request.auth != null && (
-        request.auth.token.admin == true || request.auth.token.role == 'admin'
-      );
-    }
-    function hasComplianceRole() {
-      return request.auth != null && (
-        request.auth.token.compliance == true || request.auth.token.role == 'compliance'
-      );
-    }
-    // Helper: solo permitir que el chofer modifique estrictamente el campo billingConsent
-    function driverSetsOnlyBillingConsent(driverId) {
-      return request.auth != null && request.auth.uid == driverId
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['billingConsent']);
-    }
-    // Helper: garantizar que no se modifique el campo billingConsent
-    function noChangeToBillingConsent() {
-      return !request.resource.data.diff(resource.data).changedKeys().hasAny(['billingConsent']);
-    }
+match /databases/{database}/documents {
+// Helper functions for roles
+function hasAdminRole() {
+return request.auth != null && (
+request.auth.token.admin == true || request.auth.token.role == 'admin'
+);
+}
+function hasComplianceRole() {
+return request.auth != null && (
+request.auth.token.compliance == true || request.auth.token.role == 'compliance'
+);
+}
+// Helper: solo permitir que el chofer modifique estrictamente el campo billingConsent
+function driverSetsOnlyBillingConsent(driverId) {
+return request.auth != null && request.auth.uid == driverId
+&& request.resource.data.diff(resource.data).changedKeys().hasOnly(['billingConsent']);
+}
+// Helper: garantizar que no se modifique el campo billingConsent
+function noChangeToBillingConsent() {
+return !request.resource.data.diff(resource.data).changedKeys().hasAny(['billingConsent']);
+}
 
-    // --- USERS ---
-    match /users/{userId} {
-      allow read: if (request.auth != null && request.auth.uid == userId) || hasAdminRole();
-      allow update: if request.auth != null && request.auth.uid == userId &&
-        request.resource.data.keys().hasOnly(['displayName', 'phoneNumber', 'email']);
-      allow create: if request.auth != null
-        && request.resource.data.acceptedTerms == true
-        && request.resource.data.acceptedPrivacy == true
-        && request.resource.data.keys().hasAll(['displayName', 'phoneNumber', 'email', 'acceptedTerms', 'acceptedPrivacy', 'createdAt'])
-        && request.resource.data.size() == 6;
-    }
+// --- USERS ---
+match /users/{userId} {
+  // Leer: El usuario puede leer su propio perfil, o un admin.
+  allow read: if (request.auth != null && request.auth.uid == userId) || hasAdminRole();
+  
+  // Actualizar: El usuario puede actualizar su propio perfil.
+  allow update: if request.auth != null && request.auth.uid == userId; 
+  
+  // ----------
+  // ¡AQUÍ ESTÁ EL ARREGLO!
+  // ----------
+  // Crear: Se permite la creación de un perfil de usuario si el usuario está autenticado
+  // Y si está intentando crear su *propio* documento de perfil.
+  // Esto coincide con la lógica de negocio "usuarios fácil".
+  allow create: if request.auth != null && request.auth.uid == userId;
+}
 
-    // --- DRIVERS ---
-    match /drivers/{driverId} {
-      // Creación del registro de chofer requiere consentimiento de cobro explícito
-      allow create: if request.auth != null && request.auth.uid == driverId
-        && request.resource.data.status == 'pending'
-        && request.resource.data.keys().hasAll(['status', 'createdAt', 'displayName', 'phoneNumber', 'email'])
-        && request.resource.data.size() == 5;
+// --- PASSENGERS ---
+match /passengers/{userId} {
+  allow read: if (request.auth != null && request.auth.uid == userId) || hasAdminRole();
+  allow update: if request.auth != null && request.auth.uid == userId; 
+  allow create: if request.auth != null && request.auth.uid == userId;
+}
 
-      // Lectura: chofer dueño, admin o compliance
-      allow read: if request.auth != null && (request.auth.uid == driverId || hasAdminRole() || hasComplianceRole());
+// --- DRIVERS ---
+// (SE DEJAN ESTRICTAS, TAL COMO QUIERES PARA TU VALIDACIÓN HUMANA)
+match /drivers/{driverId} {
+  // Creación del registro de chofer requiere consentimiento de cobro explícito
+  allow create: if request.auth != null && request.auth.uid == driverId
+    && request.resource.data.status == 'pending'
+    && request.resource.data.keys().hasAll(['status', 'createdAt', 'displayName', 'phoneNumber', 'email'])
+    && request.resource.data.size() == 5;
 
-      // Actualizaciones generales: admin o compliance, sin modificar billingConsent
-      allow update: if (hasAdminRole() || hasComplianceRole()) && noChangeToBillingConsent();
+  // Lectura: chofer dueño, admin o compliance
+  allow read: if request.auth != null && (request.auth.uid == driverId || hasAdminRole() || hasComplianceRole());
 
-      // Excepción: el propio chofer puede marcar/actualizar únicamente el campo billingConsent
-      allow update: if driverSetsOnlyBillingConsent(driverId);
-      
-      match /documents/{docId} {
-        allow read: if request.auth != null && (request.auth.uid == driverId || hasAdminRole());
-        allow write: if hasAdminRole();
-      }
-    }
+  // Actualizaciones generales: admin o compliance, sin modificar billingConsent
+  allow update: if (hasAdminRole() || hasComplianceRole()) && noChangeToBillingConsent();
 
-    // --- TRIPS ---
-    match /trips/{tripId} {
-      // Un conductor no puede marcar una penalización directamente
-      allow update: if request.auth.uid == resource.data.driverId && !request.resource.data.penaltyCharged;
-      // Logs de seguridad dentro de un viaje
-      match /safety_logs/{logId} {
-        allow read: if request.auth.uid == resource.data.actorId || hasAdminRole();
-        allow write: if false; // Solo el backend puede escribir aquí
-      }
-
-      allow create: if request.auth != null
-        && request.resource.data.passengerId == request.auth.uid
-        && request.resource.data.status == 'pending';
-      allow read: if request.auth != null
-        && (resource.data.passengerId == request.auth.uid || resource.data.driverId == request.auth.uid);
-      allow update: if (hasAdminRole() || hasComplianceRole()) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']);
-      
-      match /logs/{logId} {
-        allow read: if request.auth != null;
-        allow write: if hasAdminRole();
-      }
-
-      match /payment/{paymentId} {
-        allow read: if (request.auth != null && resource.data.passengerId == request.auth.uid) || hasAdminRole();
-        allow write: if false; // Solo el backend puede escribir aquí
-      }
-    }
-
-    // --- SHARED TRIPS ---
-    match /shared_trips/{shareToken} {
-      allow read: if resource.data.isActive == true;
-      allow create, update, delete: if hasAdminRole();
-    }
-
-    // --- SAFETY PROFILES ---
-    match /safety_profiles/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth.uid == userId && request.resource.data.misuseScore == 0;
-    }
-
-    // --- FARES ---
-    match /fares/tariffs {
-      allow read: if request.auth != null;
-      allow write: if hasAdminRole();
-    }
-
-    // --- RATINGS ---
-    match /ratings/{ratingId} {
-      allow create: if request.auth != null
-        && request.resource.data.userId == request.auth.uid;
-      allow read: if request.auth != null
-        && (resource.data.userId == request.auth.uid || hasAdminRole());
-      allow update, delete: if false; // ratings son inmutables
-    }
+  // Excepción: el propio chofer puede marcar/actualizar únicamente el campo billingConsent
+  allow update: if driverSetsOnlyBillingConsent(driverId);
+  
+  match /documents/{docId} {
+    allow read: if request.auth != null && (request.auth.uid == driverId || hasAdminRole());
+    allow write: if hasAdminRole();
   }
 }
 
-service firebase.storage {
-  // Helper functions for roles (storage service)
-  function hasAdminRole() {
-    return request.auth != null && (
-      request.auth.token.admin == true || request.auth.token.role == 'admin'
-    );
-  }
-  function hasComplianceRole() {
-    return request.auth != null && (
-      request.auth.token.compliance == true || request.auth.token.role == 'compliance'
-    );
+// --- TRIPS ---
+match /trips/{tripId} {
+  // Un conductor no puede marcar una penalización directamente
+  allow update: if request.auth.uid == resource.data.driverId && !request.resource.data.penaltyCharged;
+  // Logs de seguridad dentro de un viaje
+  match /safety_logs/{logId} {
+    allow read: if request.auth.uid == resource.data.actorId || hasAdminRole();
+    allow write: if false; // Solo el backend puede escribir aquí
   }
 
-  match /b/{bucket}/o {
-    // Trip audio
-    match /trip_audio/{tripId}/{userId}/{chunkId} {
-      allow write: if request.auth != null && request.auth.uid == userId;
-      allow read: if hasAdminRole() || hasComplianceRole();
-    }
+  allow create: if request.auth != null
+    && request.resource.data.passengerId == request.auth.uid
+    && request.resource.data.status == 'pending';
+  allow read: if request.auth != null
+    && (resource.data.passengerId == request.auth.uid || resource.data.driverId == request.auth.uid);
+  allow update: if (hasAdminRole() || hasComplianceRole()) &&
+    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']);
+  
+  match /logs/{logId} {
+    allow read: if request.auth != null;
+    allow write: if hasAdminRole();
   }
+
+  match /payment/{paymentId} {
+    allow read: if (request.auth != null && resource.data.passengerId == request.auth.uid) || hasAdminRole();
+    allow write: if false; // Solo el backend puede escribir aquí
+  }
+}
+
+// --- SHARED TRIPS ---
+match /shared_trips/{shareToken} {
+  allow read: if resource.data.isActive == true;
+  allow create, update, delete: if hasAdminRole();
+}
+
+// --- SAFETY PROFILES ---
+match /safety_profiles/{userId} {
+  allow read, write: if request.auth != null && request.auth.uid == userId;
+  allow create: if request.auth.uid == userId && request.resource.data.misuseScore == 0;
+}
+
+// --- FARES ---
+match /fares/tariffs {
+  allow read: if request.auth != null;
+  allow write: if hasAdminRole();
+}
+
+// --- RATINGS ---
+match /ratings/{ratingId} {
+  allow create: if request.auth != null
+    && request.resource.data.userId == request.auth.uid;
+  allow read: if request.auth != null
+    && (resource.data.userId == request.auth.uid || hasAdminRole());
+  allow update, delete: if false; // ratings son inmutables
+}
+
+// SOPORTE: Tickets
+match /support_tickets/{ticketId} {
+  allow create: if request.auth != null;
+  allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+}
+
+// SOPORTE: chat simple por usuario (pantalla "Chat Soporte")
+match /support_chat/{uid} {
+  // Documento con datos básicos del chat
+  allow read, write: if request.auth != null && request.auth.uid == uid;
+}
+
+// SOPORTE: mensajes dentro del chat
+match /support_chat/{uid}/messages/{msgId} {
+  allow create, read: if request.auth != null && request.auth.uid == uid;
+}
+
+// SOPORTE: mensajes internos si el código usa support_messages
+match /support_messages/{uid}/messages/{msgId} {
+  allow create, read: if request.auth != null && request.auth.uid == uid;
+}
+
+}
+}
+
+service firebase.storage {
+// Helper functions for roles (storage service)
+function hasAdminRole() {
+return request.auth != null && (
+request.auth.token.admin == true || request.auth.token.role == 'admin'
+);
+}
+function hasComplianceRole() {
+return request.auth != null && (
+request.auth.token.compliance == true || request.auth.token.role == 'compliance'
+);
+}
+
+match /b/{bucket}/o {
+// Trip audio
+match /trip_audio/{tripId}/{userId}/{chunkId} {
+allow write: if request.auth != null && request.auth.uid == userId;
+allow read: if hasAdminRole() || hasComplianceRole();
+}
+
+// Support audio
+match /support_audio/{uid}/{fileName} {
+allow write: if request.auth != null && request.auth.uid == uid;
+allow read: if request.auth != null && request.auth.uid == uid;
+}
+}
 }

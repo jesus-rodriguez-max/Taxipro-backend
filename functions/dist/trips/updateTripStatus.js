@@ -46,11 +46,12 @@ const COST_PER_MIN_CENTS = 200; // 2.00 MXN
 /**
  * Gestiona todas las actualizaciones de un viaje: cambio de estado, taxímetro, etc.
  */
-const updateTripStatusCallable = async (data, context) => {
-    if (!context.auth) {
+const https_2 = require("firebase-functions/v2/https");
+exports.updateTripStatusCallable = (0, https_2.onCall)(async (request) => {
+    if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'El usuario no está autenticado.');
     }
-    const { tripId, newStatus, currentLocation, newDestination, newStop } = data;
+    const { tripId, newStatus, currentLocation, newDestination, newStop } = request.data;
     const tripRef = admin.firestore().collection('trips').doc(tripId);
     const tripDoc = await tripRef.get();
     if (!tripDoc.exists) {
@@ -84,8 +85,7 @@ const updateTripStatusCallable = async (data, context) => {
     }
     await batch.commit();
     return response;
-};
-exports.updateTripStatusCallable = updateTripStatusCallable;
+});
 // --- Lógica Modularizada ---
 function handleDestinationChange(trip, dest, batch, ref) {
     const progress = (trip.distance?.travelled || 0) / (trip.distance?.planned || 1);

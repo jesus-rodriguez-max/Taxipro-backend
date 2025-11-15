@@ -32,35 +32,32 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.subscribeDriverCallable = void 0;
 const admin = __importStar(require("firebase-admin"));
-const functions = __importStar(require("firebase-functions"));
-const stripe_1 = __importDefault(require("stripe"));
+const https_1 = require("firebase-functions/v2/https");
+const service_1 = require("./service");
 const config_1 = require("../config");
-const subscribeDriverCallable = async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'Debe iniciar sesión');
+exports.subscribeDriverCallable = (0, https_1.onCall)({ secrets: ['STRIPE_SECRET'] }, async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'Debe iniciar sesión');
     }
-    const driverId = context.auth.uid;
+    const driverId = request.auth.uid;
+    const data = request.data;
     const driverRef = admin.firestore().collection('drivers').doc(driverId);
     const driverSnap = await driverRef.get();
     if (!driverSnap.exists) {
-        throw new functions.https.HttpsError('failed-precondition', 'Solo los conductores pueden suscribirse');
+        throw new https_1.HttpsError('failed-precondition', 'Solo los conductores pueden suscribirse');
     }
     const driver = driverSnap.data();
     if (driver?.billingConsent !== true) {
-        throw new functions.https.HttpsError('failed-precondition', 'Debe aceptar el consentimiento de cobro (billingConsent) antes de suscribirse');
+        throw new https_1.HttpsError('failed-precondition', 'Debe aceptar el consentimiento de cobro (billingConsent) antes de suscribirse');
     }
-    const stripeSecret = config_1.STRIPE_SECRET;
     const priceId = config_1.STRIPE_WEEKLY_PRICE_ID; // Precio recurrente semanal (149 MXN)
-    if (!stripeSecret || !priceId) {
-        throw new functions.https.HttpsError('failed-precondition', 'La configuración de Stripe no está completa');
+    if (!priceId) {
+        throw new https_1.HttpsError('failed-precondition', 'La configuración de Stripe no está completa');
     }
-    const stripe = new stripe_1.default(stripeSecret, { apiVersion: '2024-06-20' });
+    const stripe = (0, service_1.getStripe)();
     // Crear o reutilizar Customer de Stripe
     let stripeCustomerId = driver?.stripeCustomerId;
     if (!stripeCustomerId) {
@@ -83,6 +80,5 @@ const subscribeDriverCallable = async (data, context) => {
         client_reference_id: driverId,
     });
     return { sessionId: session.id, url: session.url };
-};
-exports.subscribeDriverCallable = subscribeDriverCallable;
+});
 //# sourceMappingURL=subscribeDriver.js.map

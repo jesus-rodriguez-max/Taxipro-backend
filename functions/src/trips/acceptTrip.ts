@@ -1,4 +1,4 @@
-import * as functions from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { TripStatus } from '../lib/types';
 import { isDriverSubscriptionActive } from '../lib/subscription';
@@ -6,25 +6,23 @@ import { log } from '../lib/logging';
 
 /**
  * Callable that allows a driver to accept a pending trip.
- * @param data expects an object { tripId: string }
- * @param context firebase context with auth
  */
-export const acceptTripCallable = async (data: { tripId: string }, context: functions.https.CallableContext) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+export const acceptTripCallable = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'The function must be called while authenticated.');
   }
 
-  const driverId = context.auth.uid;
-  const { tripId } = data;
+  const driverId = request.auth.uid;
+  const { tripId } = request.data;
 
   if (!tripId) {
-    throw new functions.https.HttpsError('invalid-argument', 'Missing tripId.');
+    throw new HttpsError('invalid-argument', 'Missing tripId.');
   }
 
   // Check if driver has an active subscription or free trial
   const isActive = await isDriverSubscriptionActive(driverId);
   if (!isActive) {
-    throw new functions.https.HttpsError('permission-denied', 'Driver does not have an active subscription.');
+    throw new HttpsError('permission-denied', 'Driver does not have an active subscription.');
   }
 
   const firestore = getFirestore();
@@ -32,14 +30,14 @@ export const acceptTripCallable = async (data: { tripId: string }, context: func
   const tripDoc = await tripRef.get();
 
   if (!tripDoc.exists) {
-    throw new functions.https.HttpsError('not-found', 'Trip not found.');
+    throw new HttpsError('not-found', 'Trip not found.');
   }
 
   const trip = tripDoc.data() as any;
 
   // Only allow accepting trips that are requested/pending
   if (trip.status && trip.status !== TripStatus.PENDING && trip.status !== 'pending') {
-    throw new functions.https.HttpsError('failed-precondition', 'Trip cannot be accepted in its current status.');
+    throw new HttpsError('failed-precondition', 'Trip cannot be accepted in its current status.');
   }
 
   // Assign driver and update status to assigned
@@ -58,4 +56,4 @@ export const acceptTripCallable = async (data: { tripId: string }, context: func
     tripId,
     status: TripStatus.ASSIGNED ?? 'assigned',
   };
-};
+});

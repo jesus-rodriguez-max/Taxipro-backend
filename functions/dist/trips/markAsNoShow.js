@@ -43,12 +43,13 @@ const PENALTY_FARE = 5000; // Ejemplo: 50.00 MXN en centavos
 /**
  * Función invocable para que un chofer marque que el pasajero no se presentó.
  */
-const markAsNoShowCallable = async (data, context) => {
-    if (!context.auth) {
+const https_2 = require("firebase-functions/v2/https");
+exports.markAsNoShowCallable = (0, https_2.onCall)(async (request) => {
+    if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'El usuario no está autenticado.');
     }
-    const driverId = context.auth.uid;
-    const { tripId } = data;
+    const driverId = request.auth.uid;
+    const { tripId } = request.data;
     const tripRef = admin.firestore().collection('trips').doc(tripId);
     const tripDoc = await tripRef.get();
     if (!tripDoc.exists) {
@@ -97,6 +98,5 @@ const markAsNoShowCallable = async (data, context) => {
         });
         return { success: true, message: 'Pasajero marcado como no presentado. Se añadió penalización a su saldo pendiente.' };
     }
-};
-exports.markAsNoShowCallable = markAsNoShowCallable;
+});
 //# sourceMappingURL=markAsNoShow.js.map

@@ -1,18 +1,15 @@
-import * as functions from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 
 /**
  * Obtiene una lista paginada de todos los viajes.
- * @param {object} data - Datos de la llamada, puede contener `pageSize` y `startAfter`.
- * @param {functions.https.CallableContext} context - Contexto de la función.
- * @returns {Promise<any>} - Lista de viajes.
  */
-export const getAllTripsCallable = async (data: any, context: functions.https.CallableContext) => {
-  if (!context.auth || context.auth.token.role !== 'admin') {
-    throw new functions.https.HttpsError('permission-denied', 'Solo los administradores pueden ver todos los viajes.');
+export const getAllTripsCallable = onCall(async (request) => {
+  if (!request.auth || request.auth.token.role !== 'admin') {
+    throw new HttpsError('permission-denied', 'Solo los administradores pueden ver todos los viajes.');
   }
 
-  const { pageSize = 10, startAfter } = data;
+  const { pageSize = 10, startAfter } = request.data;
   let query = admin.firestore().collection('trips').orderBy('createdAt', 'desc').limit(pageSize);
 
   if (startAfter) {
@@ -28,6 +25,6 @@ export const getAllTripsCallable = async (data: any, context: functions.https.Ca
     return { trips };
   } catch (error: any) {
     console.error('Error al obtener los viajes:', error);
-    throw new functions.https.HttpsError('internal', 'No se pudieron obtener los viajes.', error.message);
+    throw new HttpsError('internal', 'No se pudieron obtener los viajes.', error.message);
   }
-};
+});

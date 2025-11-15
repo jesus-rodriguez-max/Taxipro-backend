@@ -43,13 +43,14 @@ const ARRIVAL_RADIUS_METERS = 150;
  * Función invocable que un chofer llama para marcar que ha llegado
  * al punto de recogida del pasajero.
  */
-const driverArrivedCallable = async (data, context) => {
+const https_2 = require("firebase-functions/v2/https");
+exports.driverArrivedCallable = (0, https_2.onCall)(async (request) => {
     // 1. Validar autenticación
-    if (!context.auth) {
+    if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'El usuario no está autenticado.');
     }
-    const driverId = context.auth.uid;
-    const { tripId, location } = data;
+    const driverId = request.auth.uid;
+    const { tripId, location } = request.data;
     if (!tripId || !location) {
         throw new https_1.HttpsError('invalid-argument', 'Faltan parámetros (tripId, location).');
     }
@@ -88,6 +89,5 @@ const driverArrivedCallable = async (data, context) => {
         }
         throw new https_1.HttpsError('internal', 'Ocurrió un error al procesar la llegada.');
     }
-};
-exports.driverArrivedCallable = driverArrivedCallable;
+});
 //# sourceMappingURL=driverArrived.js.map

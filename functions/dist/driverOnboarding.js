@@ -40,13 +40,13 @@ const https_1 = require("firebase-functions/v2/https");
  * Función invocable para que un chofer envíe sus datos de pago (CLABE o Stripe).
  * Un chofer no puede ser aprobado hasta que este paso se complete.
  */
-const updateDriverOnboardingCallable = async (data, context) => {
+exports.updateDriverOnboardingCallable = (0, https_1.onCall)(async (request) => {
     // 1. Validar autenticación
-    if (!context.auth) {
+    if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'El usuario no está autenticado.');
     }
-    const driverId = context.auth.uid;
-    const { clabe, stripeAccountToken } = data;
+    const driverId = request.auth.uid;
+    const { clabe, stripeAccountToken } = request.data;
     // 2. Validar que al menos uno de los dos campos esté presente
     if (!clabe && !stripeAccountToken) {
         throw new https_1.HttpsError('invalid-argument', 'Se debe proporcionar una CLABE o una cuenta de Stripe.');
@@ -80,6 +80,5 @@ const updateDriverOnboardingCallable = async (data, context) => {
         console.error('Error al actualizar los datos de pago del chofer:', error);
         throw new https_1.HttpsError('internal', 'Ocurrió un error al guardar la información.');
     }
-};
-exports.updateDriverOnboardingCallable = updateDriverOnboardingCallable;
+});
 //# sourceMappingURL=driverOnboarding.js.map

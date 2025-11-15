@@ -14,14 +14,16 @@ interface DriverArrivedData {
  * Función invocable que un chofer llama para marcar que ha llegado
  * al punto de recogida del pasajero.
  */
-export const driverArrivedCallable = async (data: DriverArrivedData, context: any) => {
+import { onCall } from 'firebase-functions/v2/https';
+
+export const driverArrivedCallable = onCall(async (request) => {
   // 1. Validar autenticación
-  if (!context.auth) {
+  if (!request.auth) {
     throw new HttpsError('unauthenticated', 'El usuario no está autenticado.');
   }
 
-  const driverId = context.auth.uid;
-  const { tripId, location } = data;
+  const driverId = request.auth.uid;
+  const { tripId, location } = request.data as DriverArrivedData;
 
   if (!tripId || !location) {
     throw new HttpsError('invalid-argument', 'Faltan parámetros (tripId, location).');
@@ -69,4 +71,4 @@ export const driverArrivedCallable = async (data: DriverArrivedData, context: an
     }
     throw new HttpsError('internal', 'Ocurrió un error al procesar la llegada.');
   }
-};
+});

@@ -1,6 +1,7 @@
-import * as functions from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import { getStripe } from '../stripe/service';
+import { STRIPE_API_VERSION } from '../config';
 
 interface CreatePassengerEphemeralKeyInput {
   userId: string;
@@ -10,19 +11,16 @@ interface CreatePassengerEphemeralKeyInput {
  * Creates a Stripe Ephemeral Key for a passenger's customer to be used with PaymentSheet.
  * Returns the ephemeral key secret and the customerId.
  */
-export const createPassengerEphemeralKeyCallable = async (
-  data: CreatePassengerEphemeralKeyInput,
-  context: functions.https.CallableContext
-) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'El usuario debe estar autenticado.');
+export const createPassengerEphemeralKeyCallable = onCall({ secrets: ['STRIPE_SECRET'] }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'El usuario debe estar autenticado.');
   }
-  const { userId } = data || ({} as any);
+  const { userId } = request.data as CreatePassengerEphemeralKeyInput;
   if (!userId) {
-    throw new functions.https.HttpsError('invalid-argument', 'Falta userId.');
+    throw new HttpsError('invalid-argument', 'Falta userId.');
   }
-  if (context.auth.uid !== userId) {
-    throw new functions.https.HttpsError('permission-denied', 'No puedes operar sobre otro usuario.');
+  if (request.auth.uid !== userId) {
+    throw new HttpsError('permission-denied', 'No puedes operar sobre otro usuario.');
   }
 
   const db = admin.firestore();
@@ -40,8 +38,8 @@ export const createPassengerEphemeralKeyCallable = async (
   // Stripe requires apiVersion when creating ephemeral keys
   const eph = await stripe.ephemeralKeys.create(
     { customer: stripeCustomerId },
-    { apiVersion: '2024-06-20' as any }
+    { apiVersion: STRIPE_API_VERSION as any }
   );
 
   return { secret: eph.secret, customerId: stripeCustomerId };
-};
+});

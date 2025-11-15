@@ -1,19 +1,16 @@
-import * as functions from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import Stripe from 'stripe';
-import { STRIPE_SECRET, STRIPE_SUBSCRIPTION_DAYS } from '../config';
+import { getStripe } from './service';
+import { STRIPE_SUBSCRIPTION_DAYS } from '../config';
 
-export const syncDriverSubscriptionStatusCallable = async (_data: unknown, context: functions.https.CallableContext) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Debe iniciar sesión.');
+export const syncDriverSubscriptionStatusCallable = onCall({ secrets: ['STRIPE_SECRET'] }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Debe iniciar sesión.');
   }
-  const uid = context.auth.uid;
+  const uid = request.auth.uid;
 
-  const stripeSecret = STRIPE_SECRET;
-  if (!stripeSecret) {
-    throw new functions.https.HttpsError('failed-precondition', 'Stripe secret no configurado.');
-  }
-  const stripe = new Stripe(stripeSecret, { apiVersion: '2024-06-20' as any });
+  const stripe = getStripe();
 
   try {
     // Obtener la suscripción más reciente del cliente asociado al driver
@@ -80,7 +77,7 @@ export const syncDriverSubscriptionStatusCallable = async (_data: unknown, conte
     };
   } catch (error: any) {
     console.error('[syncSubscription] Error:', error);
-    if (error instanceof functions.https.HttpsError) throw error;
-    throw new functions.https.HttpsError('internal', error?.message || 'Error al sincronizar la suscripción.');
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError('internal', error?.message || 'Error al sincronizar la suscripción.');
   }
-};
+});

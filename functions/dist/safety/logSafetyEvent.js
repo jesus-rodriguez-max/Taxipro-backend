@@ -34,20 +34,20 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.logSafetyEventV2Callable = void 0;
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
-const https_1 = require("firebase-functions/v1/https");
 const safety_1 = require("../models/safety");
 const config_1 = require("../config");
 const crypto = __importStar(require("crypto"));
-const logSafetyEventV2Callable = async (data, context) => {
-    if (!context.auth) {
+exports.logSafetyEventV2Callable = (0, https_1.onCall)(async (request) => {
+    if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'El usuario debe estar autenticado.');
     }
-    const { tripId, eventType, actorId, coords, audioBase64 } = data;
+    const { tripId, eventType, actorId, coords, audioBase64 } = request.data;
     if (!Object.values(safety_1.SafetyEventType).includes(eventType)) {
         throw new https_1.HttpsError('invalid-argument', 'El tipo de evento no es válido.');
     }
-    const userId = context.auth.uid;
+    const userId = request.auth.uid;
     const db = admin.firestore();
     if (userId !== actorId) {
         throw new https_1.HttpsError('permission-denied', 'No puedes reportar un evento en nombre de otro usuario.');
@@ -118,6 +118,5 @@ const logSafetyEventV2Callable = async (data, context) => {
     const logRef = db.collection('trips').doc(tripId).collection('safety_logs').doc();
     await logRef.set(safetyLog);
     return { status: 'success', message: 'Evento de seguridad registrado.' };
-};
-exports.logSafetyEventV2Callable = logSafetyEventV2Callable;
+});
 //# sourceMappingURL=logSafetyEvent.js.map

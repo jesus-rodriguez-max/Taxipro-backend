@@ -34,18 +34,16 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateTariffsCallable = void 0;
-const functions = __importStar(require("firebase-functions"));
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 /**
  * Permite a un administrador actualizar las tarifas de la aplicación.
- * @param {object} data - Nuevos datos de las tarifas.
- * @param {functions.https.CallableContext} context - Contexto de la función.
- * @returns {Promise<{status: string}>} - Estado de la operación.
  */
-const updateTariffsCallable = async (data, context) => {
-    if (!context.auth || context.auth.token.role !== 'admin') {
-        throw new functions.https.HttpsError('permission-denied', 'Solo los administradores pueden actualizar las tarifas.');
+exports.updateTariffsCallable = (0, https_1.onCall)(async (request) => {
+    if (!request.auth || request.auth.token.role !== 'admin') {
+        throw new https_1.HttpsError('permission-denied', 'Solo los administradores pueden actualizar las tarifas.');
     }
+    const data = request.data;
     try {
         const tariffsRef = admin.firestore().collection('fares').doc('tariffs');
         await tariffsRef.set(data, { merge: true });
@@ -53,8 +51,7 @@ const updateTariffsCallable = async (data, context) => {
     }
     catch (error) {
         console.error('Error al actualizar las tarifas:', error);
-        throw new functions.https.HttpsError('internal', 'No se pudieron actualizar las tarifas.', error.message);
+        throw new https_1.HttpsError('internal', 'No se pudieron actualizar las tarifas.', error.message);
     }
-};
-exports.updateTariffsCallable = updateTariffsCallable;
+});
 //# sourceMappingURL=updateTariffs.js.map

@@ -1,6 +1,5 @@
-import * as functions from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
-import { HttpsError } from 'firebase-functions/v1/https';
 import { SafetyProfile, SafetyLog, SafetyEventType } from '../models/safety';
 import { SAFETY_RATE_LIMIT_MINUTES, SAFETY_DAILY_LIMIT } from '../config';
 
@@ -16,15 +15,15 @@ interface LogSafetyEventData {
   audioBase64?: string; // Audio opcional en base64
 }
 
-export const logSafetyEventV2Callable = async (data: LogSafetyEventData, context: functions.https.CallableContext) => {
-  if (!context.auth) {
+export const logSafetyEventV2Callable = onCall(async (request) => {
+  if (!request.auth) {
     throw new HttpsError('unauthenticated', 'El usuario debe estar autenticado.');
   }
-  const { tripId, eventType, actorId, coords, audioBase64 } = data;
+  const { tripId, eventType, actorId, coords, audioBase64 } = request.data as LogSafetyEventData;
   if (!Object.values(SafetyEventType).includes(eventType)) {
     throw new HttpsError('invalid-argument', 'El tipo de evento no es válido.');
   }
-  const userId = context.auth.uid;
+  const userId = request.auth.uid;
   const db = admin.firestore();
 
   if (userId !== actorId) {
@@ -114,4 +113,4 @@ export const logSafetyEventV2Callable = async (data: LogSafetyEventData, context
   await logRef.set(safetyLog);
 
   return { status: 'success', message: 'Evento de seguridad registrado.' };
-};
+});

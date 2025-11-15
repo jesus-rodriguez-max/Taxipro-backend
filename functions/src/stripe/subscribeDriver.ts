@@ -1,35 +1,35 @@
 import * as admin from 'firebase-admin';
-import * as functions from 'firebase-functions';
-import Stripe from 'stripe';
-import { STRIPE_SECRET, STRIPE_WEEKLY_PRICE_ID } from '../config';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { getStripe } from './service';
+import { STRIPE_WEEKLY_PRICE_ID } from '../config';
 
 interface SubscribeDriverData {
   successUrl?: string;
   cancelUrl?: string;
 }
 
-export const subscribeDriverCallable = async (data: SubscribeDriverData, context: functions.https.CallableContext) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Debe iniciar sesión');
+export const subscribeDriverCallable = onCall({ secrets: ['STRIPE_SECRET'] }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Debe iniciar sesión');
   }
-  const driverId = context.auth.uid;
+  const driverId = request.auth.uid;
+  const data = request.data as SubscribeDriverData;
 
   const driverRef = admin.firestore().collection('drivers').doc(driverId);
   const driverSnap = await driverRef.get();
   if (!driverSnap.exists) {
-    throw new functions.https.HttpsError('failed-precondition', 'Solo los conductores pueden suscribirse');
+    throw new HttpsError('failed-precondition', 'Solo los conductores pueden suscribirse');
   }
   const driver = driverSnap.data() as any;
   if (driver?.billingConsent !== true) {
-    throw new functions.https.HttpsError('failed-precondition', 'Debe aceptar el consentimiento de cobro (billingConsent) antes de suscribirse');
+    throw new HttpsError('failed-precondition', 'Debe aceptar el consentimiento de cobro (billingConsent) antes de suscribirse');
   }
 
-  const stripeSecret = STRIPE_SECRET;
   const priceId = STRIPE_WEEKLY_PRICE_ID; // Precio recurrente semanal (149 MXN)
-  if (!stripeSecret || !priceId) {
-    throw new functions.https.HttpsError('failed-precondition', 'La configuración de Stripe no está completa');
+  if (!priceId) {
+    throw new HttpsError('failed-precondition', 'La configuración de Stripe no está completa');
   }
-  const stripe = new Stripe(stripeSecret, { apiVersion: '2024-06-20' as any });
+  const stripe = getStripe();
 
   // Crear o reutilizar Customer de Stripe
   let stripeCustomerId: string | undefined = driver?.stripeCustomerId;
@@ -56,4 +56,4 @@ export const subscribeDriverCallable = async (data: SubscribeDriverData, context
   });
 
   return { sessionId: session.id, url: session.url };
-};
+});

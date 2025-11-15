@@ -1,4 +1,4 @@
-import * as functions from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 
 interface SubmitRatingData {
@@ -7,22 +7,22 @@ interface SubmitRatingData {
   comment?: string;
 }
 
-export const submitRatingCallable = async (data: SubmitRatingData, context: any) => {
+export const submitRatingCallable = onCall(async (request) => {
   // 1. Autenticación: Verificar que el usuario esté autenticado
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
+  if (!request.auth) {
+    throw new HttpsError(
       'unauthenticated',
       'Only authenticated users can submit ratings.'
     );
   }
 
-  const { tripId, rating, comment } = data;
-  const passengerId = context.auth.uid;
+  const { tripId, rating, comment } = request.data as SubmitRatingData;
+  const passengerId = request.auth.uid;
   const db = admin.firestore();
 
   // 2. Validar rating
   if (typeof rating !== 'number' || rating < 1 || rating > 5) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'invalid-argument',
       'Rating must be a number between 1 and 5.'
     );
@@ -33,7 +33,7 @@ export const submitRatingCallable = async (data: SubmitRatingData, context: any)
   const tripDoc = await tripRef.get();
 
   if (!tripDoc.exists) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'not-found',
       'Trip not found.'
     );
@@ -41,7 +41,7 @@ export const submitRatingCallable = async (data: SubmitRatingData, context: any)
 
   const tripData = tripDoc.data();
   if (!tripData || tripData.status !== 'completed') {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'failed-precondition',
       'Cannot rate an uncompleted trip.'
     );
@@ -49,7 +49,7 @@ export const submitRatingCallable = async (data: SubmitRatingData, context: any)
 
   // 4. Verificar que context.auth.uid sea el passengerId del trip
   if (tripData.passengerId !== passengerId) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'permission-denied',
       'You can only rate trips you were a passenger on.'
     );
@@ -63,7 +63,7 @@ export const submitRatingCallable = async (data: SubmitRatingData, context: any)
     .get();
 
   if (!existingRatingQuery.empty) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'already-exists',
       'You have already submitted a rating for this trip.'
     );
@@ -84,7 +84,7 @@ export const submitRatingCallable = async (data: SubmitRatingData, context: any)
   await db.runTransaction(async (transaction) => {
     const driverDoc = await transaction.get(driverRef);
     if (!driverDoc.exists) {
-      throw new functions.https.HttpsError('not-found', 'Driver not found.');
+      throw new HttpsError('not-found', 'Driver not found.');
     }
 
     const driverData = driverDoc.data()!;
@@ -104,6 +104,4 @@ export const submitRatingCallable = async (data: SubmitRatingData, context: any)
   });
 
   return { status: 'success', message: 'Rating submitted successfully.' };
-};
-
-export const submitRating = functions.https.onCall(submitRatingCallable);
+});

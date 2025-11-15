@@ -1,7 +1,7 @@
 import * as admin from 'firebase-admin';
-import * as functions from 'firebase-functions';
-import Stripe from 'stripe';
-import { STRIPE_SECRET, STRIPE_ONBOARDING_REFRESH_URL, STRIPE_ONBOARDING_RETURN_URL } from '../config';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { getStripe } from './service';
+import { STRIPE_ONBOARDING_REFRESH_URL, STRIPE_ONBOARDING_RETURN_URL } from '../config';
 
 interface CreateDriverAccountData {
   refreshUrl?: string;
@@ -9,18 +9,19 @@ interface CreateDriverAccountData {
   email?: string; // opcional, si se desea enviar a Stripe
 }
 
-export const createDriverAccountCallable = async (data: CreateDriverAccountData, context: functions.https.CallableContext) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Debe iniciar sesión.');
+export const createDriverAccountCallable = onCall({ secrets: ['STRIPE_SECRET'] }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Debe iniciar sesión.');
   }
-  const driverId = context.auth.uid;
+  const driverId = request.auth.uid;
+  const data = request.data as CreateDriverAccountData;
 
-  const stripe = new Stripe(STRIPE_SECRET, { apiVersion: '2024-06-20' as any });
+  const stripe = getStripe();
 
   const driverRef = admin.firestore().collection('drivers').doc(driverId);
   const snap = await driverRef.get();
   if (!snap.exists) {
-    throw new functions.https.HttpsError('failed-precondition', 'Solo los conductores pueden crear cuenta.');
+    throw new HttpsError('failed-precondition', 'Solo los conductores pueden crear cuenta.');
   }
 
   const driverData = snap.data() || {} as any;
@@ -55,4 +56,4 @@ export const createDriverAccountCallable = async (data: CreateDriverAccountData,
   });
 
   return { accountId: stripeAccountId, url: link.url };
-};
+});

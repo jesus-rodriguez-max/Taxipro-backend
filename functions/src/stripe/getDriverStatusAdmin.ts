@@ -1,14 +1,14 @@
-import * as functions from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 
-export const getDriverStatusAdminCallable = async (_data: unknown, context: functions.https.CallableContext) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Debe iniciar sesión.');
+export const getDriverStatusAdminCallable = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Debe iniciar sesión.');
   }
-  const uid = context.auth.uid;
+  const uid = request.auth.uid;
   const doc = await admin.firestore().collection('drivers').doc(uid).get();
   if (!doc.exists) {
-    throw new functions.https.HttpsError('not-found', 'Perfil de conductor no encontrado.');
+    throw new HttpsError('not-found', 'Perfil de conductor no encontrado.');
   }
   const d = doc.data() || {} as any;
   const kyc = (d as any).kyc || {};
@@ -34,4 +34,4 @@ export const getDriverStatusAdminCallable = async (_data: unknown, context: func
     subscriptionActive,
     subscriptionExpiration: expirationIso,
   };
-};
+});
